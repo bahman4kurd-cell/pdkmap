@@ -1132,6 +1132,8 @@ adminLoginForm.addEventListener('submit', async function (event) {
             adminLoginError.textContent = 'پەیوەندی بە Supabase نەکرا. Project URL و ئینتەرنێت بپشکنە.';
         } else if (/invalid api key|api key/.test(errorMessage)) {
             adminLoginError.textContent = 'anon/publishable key دروست نییە یان هی ئەم پرۆژەیە نییە.';
+        } else if (/email not confirmed|not confirmed/.test(errorMessage)) {
+            adminLoginError.textContent = 'ئیمەیڵەکەت هێشتا پشتڕاست نەکراوەتەوە؛ لینکەکە لە inbox یان Spam بکەرەوە.';
         } else {
             adminLoginError.textContent = 'ئیمەیڵ یان وشەی نهێنی دروست نییە.';
         }
