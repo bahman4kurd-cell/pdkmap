@@ -123,7 +123,15 @@ var cancelNamedPointButton = document.getElementById('cancelNamedPoint');
 var pendingNamedPointLatLng = null;
 var supabaseUrl = window.MAP_SUPABASE_URL || '';
 var supabaseAnonKey = window.MAP_SUPABASE_ANON_KEY || '';
-var supabaseClient = supabaseUrl && supabaseAnonKey && window.supabase ?
+var isSupabaseProjectUrl = (function (value) {
+    try {
+        var parsedUrl = new URL(value);
+        return parsedUrl.protocol === 'https:' && parsedUrl.hostname.endsWith('.supabase.co');
+    } catch (error) {
+        return false;
+    }
+})(supabaseUrl);
+var supabaseClient = isSupabaseProjectUrl && supabaseAnonKey && window.supabase ?
     window.supabase.createClient(supabaseUrl, supabaseAnonKey) : null;
 var isMapAdmin = false;
 var currentAuthUser = null;
@@ -1041,7 +1049,9 @@ async function initializeOnlineAccess() {
         adminLoginButton.disabled = true;
         gateLoginButton.disabled = true;
         accessStatus.textContent = 'Supabase ڕێکنەخراوە';
-        if (!supabaseUrl) {
+        if (supabaseUrl && !isSupabaseProjectUrl) {
+            mapAccessMessage.textContent = 'ئەم URL ـە هی Render ـە، نە Supabase. Project URLی .supabase.co لە Dashboard دابنێ.';
+        } else if (!supabaseUrl) {
             mapAccessMessage.textContent = 'Project URL لە supabase-config.js دابنێ.';
         } else if (!supabaseAnonKey) {
             mapAccessMessage.textContent = 'Project URL جێگیرە؛ anon/publishable key لە supabase-config.js دابنێ تا login چالاک بێت.';
