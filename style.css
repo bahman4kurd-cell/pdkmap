@@ -1,0 +1,497 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#map {
+    width: 100vw;
+    height: 100vh;
+    background: #fff;
+}
+
+#map3d {
+    width: 100vw;
+    height: 100vh;
+    background: #f8f4f0;
+}
+
+#map[hidden],
+#map3d[hidden] {
+    display: none !important;
+}
+
+.map-access-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(247, 249, 248, 0.96);
+}
+
+.map-access-gate[hidden] {
+    display: none;
+}
+
+.map-access-message {
+    display: grid;
+    gap: 12px;
+    width: min(380px, 100%);
+    padding: 24px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(17, 24, 39, 0.12);
+    text-align: center;
+}
+
+.map-access-message h1 {
+    font-size: 20px;
+    color: #111827;
+}
+
+.map-access-message p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+.map-access-message button {
+    min-height: 42px;
+    border: 0;
+    border-radius: 5px;
+    background: #0f766e;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.map-access-message button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.leaflet-container {
+    background: #fff;
+}
+
+.style-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    width: 220px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+}
+
+.style-panel h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #1f2937;
+}
+
+.style-panel h4 {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #1f2937;
+}
+
+.style-panel label {
+    font-size: 13px;
+    color: #374151;
+}
+
+.style-panel .map-layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.map-layer-toggle input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    accent-color: #0f766e;
+}
+
+.style-panel input[type="color"] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.style-panel input[type="range"] {
+    width: 100%;
+}
+
+.style-panel select {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    color: #111827;
+    font: inherit;
+}
+
+.style-panel button {
+    min-height: 38px;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: #0f766e;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.style-panel button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.access-panel {
+    display: grid;
+    gap: 6px;
+    padding: 8px 0;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.access-panel button {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+#accessStatus {
+    color: #374151;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.admin-login-dialog {
+    width: min(390px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+}
+
+.admin-login-dialog::backdrop {
+    background: rgba(17, 24, 39, 0.48);
+}
+
+.admin-login-dialog .point-dialog {
+    width: 100%;
+}
+
+#adminLoginError {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.style-panel #addNamedPointButton,
+.style-panel #editNamedLabelButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+}
+
+#addNamedPointButton svg,
+#editNamedLabelButton svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.style-panel #addNamedPointButton[aria-pressed="true"] {
+    background: #b45309;
+}
+
+.view-mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+}
+
+.style-panel .view-mode button {
+    min-height: 32px;
+    padding: 4px 8px;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.style-panel .view-mode button[aria-pressed="true"] {
+    background: #0f766e;
+    color: #fff;
+}
+
+.style-panel .view-mode button#satelliteMapButton {
+    display: grid;
+    place-items: center;
+    min-width: 38px;
+}
+
+#satelliteMapButton svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+#opacityValue {
+    font-size: 13px;
+    color: #111827;
+}
+
+#storageStatus {
+    padding-top: 6px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #047857;
+}
+
+#locationResult {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #1f2937;
+}
+
+#regionInfoResults {
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #374151;
+}
+
+.region-info-category {
+    margin: 0 0 8px;
+}
+
+.region-info-category h5 {
+    margin-bottom: 2px;
+    font-size: 12px;
+    color: #111827;
+}
+
+.region-info-category ul {
+    padding-right: 18px;
+}
+
+.region-info-source {
+    margin-top: 6px;
+    color: #6b7280;
+}
+
+.region-info-source a {
+    color: #0f766e;
+}
+
+.region-label {
+    padding: 3px 6px;
+    border: 2px solid #111827;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #111827;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.maplibregl-map .maplibregl-marker.map3d-region-label {
+    max-width: 240px;
+    padding: 4px 8px;
+    border: 1px solid rgba(17, 24, 39, 0.75);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #111827;
+    direction: rtl;
+    unicode-bidi: plaintext;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: normal;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    user-select: none;
+}
+
+.maplibregl-map .maplibregl-marker.map3d-region-label[hidden] {
+    display: none;
+}
+
+.named-point-marker {
+    border: 0;
+    background: transparent;
+}
+
+.named-point-content,
+.map3d-named-point {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: max-content;
+    direction: rtl;
+    pointer-events: auto;
+    cursor: move;
+}
+
+.named-point-content {
+    transform: translate(-50%, -100%);
+}
+
+.named-point-symbol {
+    display: grid;
+    flex: 0 0 42px;
+    place-items: center;
+    width: 42px;
+    height: 50px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.named-point-symbol svg {
+    width: 42px;
+    height: 50px;
+    fill: #e11d48;
+    stroke: #fff;
+    stroke-width: 1.5;
+}
+
+.named-point-text {
+    padding: 3px 7px;
+    border: 1px solid rgba(17, 24, 39, 0.65);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #111827;
+    direction: rtl;
+    unicode-bidi: plaintext;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+    white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.point-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(17, 24, 39, 0.38);
+}
+
+.point-dialog-backdrop[hidden] {
+    display: none;
+}
+
+.point-dialog {
+    display: grid;
+    gap: 10px;
+    width: min(360px, 100%);
+    padding: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+}
+
+.point-dialog h4 {
+    color: #111827;
+    font-size: 16px;
+}
+
+.point-dialog label {
+    color: #374151;
+    font-size: 13px;
+}
+
+.point-dialog input {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #9ca3af;
+    border-radius: 5px;
+    font: inherit;
+}
+
+.point-dialog-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.point-dialog-actions button {
+    flex: 1;
+    min-height: 38px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 5px;
+    background: #0f766e;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.point-dialog-actions button[type="button"] {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.leaflet-draw {
+    direction: ltr;
+}

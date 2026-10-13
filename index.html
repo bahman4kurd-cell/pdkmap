@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نەخشەی کێشانی سنوورەکان</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+
+    <!-- MapLibre GL CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css?v=public-admin-access" />
+</head>
+<body>
+
+    <div class="style-panel">
+        <h3>ڕەنگی ناوچە</h3>
+        <div class="view-mode" role="group" aria-label="شێوازی نەخشە">
+            <button type="button" id="map2DButton" aria-pressed="true">2D</button>
+            <button type="button" id="map3DButton" aria-pressed="false">3D</button>
+            <button type="button" id="satelliteMapButton" aria-label="سەتەلایت" title="سەتەلایت" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m14.5 9.5 3-3 3 3-3 3zM9.5 14.5l-3 3-3-3 3-3zM8 8l8 8M14 4a6 6 0 0 1 6 6M4 14a6 6 0 0 0 6 6" />
+                </svg>
+                <span class="visually-hidden">سەتەلایت</span>
+            </button>
+        </div>
+        <div class="access-panel">
+            <span id="accessStatus" role="status" aria-live="polite">چوونەژوورەوە پێویستە</span>
+            <button type="button" id="adminLoginButton">چوونەژوورەوە</button>
+            <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
+            <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
+        </div>
+        <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+                <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <span>زیادکردنی خاڵ</span>
+        </button>
+        <button type="button" id="editNamedLabelButton" disabled title="ئیدیتی ناوی پۆینت یان سنوور">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+            </svg>
+            <span>ئیدیتی ناو</span>
+        </button>
+        <label class="map-layer-toggle" for="streetMapToggle">
+            <input type="checkbox" id="streetMapToggle" checked>
+            پیشاندانی شەقام و شوێنەکان
+        </label>
+        <label for="regionFilter">پیشاندانی ناوچە</label>
+        <select id="regionFilter">
+            <option value="">هەموو ناوچەکان</option>
+        </select>
+
+        <label for="borderColor">ڕەنگی بۆدەر</label>
+        <input type="color" id="borderColor" value="#0056b3">
+
+        <label for="fillColor">ڕەنگی ناوەوە</label>
+        <input type="color" id="fillColor" value="#3388ff">
+
+        <label for="fillOpacity">ڕوونی ناوەوە</label>
+        <input type="range" id="fillOpacity" min="0.1" max="1" step="0.1" value="0.3">
+        <span id="opacityValue">0.3</span>
+        <button type="button" id="applyRegionStyle" disabled>گۆڕینی ڕەنگی ناوچەی هەڵبژێردراو</button>
+        <h4>زانیاری ناوچە</h4>
+        <button type="button" id="refreshRegionInfo" disabled>نوێکردنەوەی زانیاری</button>
+        <div id="regionInfoResults" role="status" aria-live="polite">ناوچەیەک هەڵبژێرە بۆ گەڕانی زانیاری.</div>
+        <span id="locationResult" role="status" aria-live="polite">لەسەر شوێنێک لە نەخشەکە کلیک بکە</span>
+        <span id="storageStatus" role="status" aria-live="polite">خەریکی پەیوەندی بە داتابەیس...</span>
+    </div>
+
+    <div id="map"></div>
+    <div id="map3d" hidden></div>
+    <div id="mapAccessGate" class="map-access-gate">
+        <section class="map-access-message" aria-labelledby="mapAccessTitle">
+            <h1 id="mapAccessTitle">چوونەژوورەوە پێویستە</h1>
+            <p id="mapAccessMessage">بۆ بینینی نەخشە، بە هەژماری خۆت بچۆرە ژوورەوە.</p>
+            <button type="button" id="gateLoginButton">چوونەژوورەوە</button>
+        </section>
+    </div>
+    <div id="namedPointDialog" class="point-dialog-backdrop" hidden>
+        <form id="namedPointForm" class="point-dialog" role="dialog" aria-modal="true" aria-labelledby="namedPointTitle">
+            <h4 id="namedPointTitle">ناوی خاڵ</h4>
+            <label id="namedPointNameLabel" for="namedPointName">ناوی شوێن</label>
+            <input type="text" id="namedPointName" maxlength="80" required autocomplete="off">
+            <div class="point-dialog-actions">
+                <button type="submit">خەزنکردن</button>
+                <button type="button" id="cancelNamedPoint">هەڵوەشاندنەوە</button>
+            </div>
+        </form>
+    </div>
+    <dialog id="adminLoginDialog" class="admin-login-dialog">
+        <form id="adminLoginForm" class="point-dialog">
+            <h4>چوونەژوورەوە</h4>
+            <label for="adminEmail">ئیمەیڵ</label>
+            <input type="email" id="adminEmail" autocomplete="username" required>
+            <label for="adminPassword">وشەی نهێنی</label>
+            <input type="password" id="adminPassword" autocomplete="current-password" required>
+            <p id="adminLoginError" role="alert" hidden></p>
+            <div class="point-dialog-actions">
+                <button type="submit">چوونەژوورەوە</button>
+                <button type="button" id="closeAdminLogin">داخستن</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- Turf.js for point-in-polygon checks -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+
+    <!-- MapLibre GL for 3D buildings -->
+    <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+
+    <!-- Supabase Auth and shared map storage -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
+    <script src="supabase-config.js?v=supabase-config-2"></script>
+    
+    <!-- Custom JS -->
+    <script src="main.js?v=authenticated-viewers-admins"></script>
+</body>
+</html>
