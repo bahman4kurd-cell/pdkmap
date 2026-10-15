@@ -1038,6 +1038,7 @@ async function applyAuthenticatedSession(session) {
         return;
     }
 
+    mapAccessGate.hidden = true;
     accessStatus.textContent = canEdit ? 'ئەدمین: دەستکاری چالاکە' : 'بینەر: تەنها بینین';
     await loadCloudMap();
 }
