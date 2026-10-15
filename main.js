@@ -1153,7 +1153,10 @@ adminLoginForm.addEventListener('submit', async function (event) {
             var sessionResult = await supabaseClient.auth.getSession();
             await applyAuthenticatedSession(sessionResult.data.session);
         } catch (error) {
-            adminLoginError.textContent = 'نوێکردنەوەی وشەی نهێنی سەرکەوتوو نەبوو؛ ئەگەر لینکەکە کۆنە، داوای لینکێکی نوێ بکە.';
+            var recoveryErrorMessage = String(error && error.message || error || 'Unknown error');
+            console.error('Password recovery update failed:', recoveryErrorMessage);
+            adminPasswordInput.value = '';
+            adminLoginError.textContent = 'نوێکردنەوەی وشەی نهێنی سەرکەوتوو نەبوو: ' + recoveryErrorMessage;
             adminLoginError.hidden = false;
         }
         return;
