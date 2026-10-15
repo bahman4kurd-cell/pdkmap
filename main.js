@@ -1111,15 +1111,16 @@ adminLoginForm.addEventListener('submit', async function (event) {
 
     if (loginError) {
         var errorMessage = String(loginError.message || loginError).toLowerCase();
+        var errorCode = String(loginError.code || '').toLowerCase();
         if (/fetch|network|dns|name_not_resolved|failed to send/.test(errorMessage) ||
             loginError instanceof TypeError) {
             adminLoginError.textContent = 'پەیوەندی بە Supabase نەکرا. Project URL و ئینتەرنێت بپشکنە.';
         } else if (/invalid api key|api key/.test(errorMessage)) {
             adminLoginError.textContent = 'anon/publishable key دروست نییە یان هی ئەم پرۆژەیە نییە.';
-        } else if (/email not confirmed|not confirmed/.test(errorMessage)) {
+        } else if (errorCode === 'email_not_confirmed' || /email not confirmed|not confirmed/.test(errorMessage)) {
             adminLoginError.textContent = 'ئیمەیڵەکەت هێشتا پشتڕاست نەکراوەتەوە؛ لینکەکە لە inbox یان Spam بکەرەوە.';
         } else {
-            adminLoginError.textContent = 'ئیمەیڵ یان وشەی نهێنی دروست نییە.';
+            adminLoginError.textContent = 'ئیمەیڵ یان password دروست نییە؛ لە Authentication → Users دڵنیابە هەژمارەکە confirm کراوە.';
         }
         adminLoginError.hidden = false;
         return;
