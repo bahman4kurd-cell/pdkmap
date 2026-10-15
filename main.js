@@ -1120,7 +1120,7 @@ adminLoginForm.addEventListener('submit', async function (event) {
         } else if (errorCode === 'email_not_confirmed' || /email not confirmed|not confirmed/.test(errorMessage)) {
             adminLoginError.textContent = 'ئیمەیڵەکەت هێشتا پشتڕاست نەکراوەتەوە؛ لینکەکە لە inbox یان Spam بکەرەوە.';
         } else {
-            adminLoginError.textContent = 'ئیمەیڵ یان password دروست نییە؛ لە Authentication → Users دڵنیابە هەژمارەکە confirm کراوە.';
+            adminLoginError.textContent = 'ئیمەیڵ یان password بۆ ئەم پرۆژەیە دروست نییە؛ دڵنیابە هەژمارەکە لە Supabaseی هەمان project دروستکراوە.';
         }
         adminLoginError.hidden = false;
         return;
