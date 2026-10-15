@@ -80,15 +80,12 @@ map.addLayer(drawnItems);
 
 var storageStatus = document.getElementById('storageStatus');
 var accessStatus = document.getElementById('accessStatus');
-var adminLoginButton = document.getElementById('adminLoginButton');
 var adminLogoutButton = document.getElementById('adminLogoutButton');
 var migrateLocalDataButton = document.getElementById('migrateLocalDataButton');
-var adminLoginDialog = document.getElementById('adminLoginDialog');
 var adminLoginForm = document.getElementById('adminLoginForm');
 var adminEmailInput = document.getElementById('adminEmail');
 var adminPasswordInput = document.getElementById('adminPassword');
 var adminLoginError = document.getElementById('adminLoginError');
-var closeAdminLoginButton = document.getElementById('closeAdminLogin');
 var locationResult = document.getElementById('locationResult');
 var regionFilter = document.getElementById('regionFilter');
 var applyRegionStyleButton = document.getElementById('applyRegionStyle');
@@ -1023,7 +1020,6 @@ async function applyAuthenticatedSession(session) {
     }
 
     setMapEditorPermissions(canEdit);
-    adminLoginButton.hidden = Boolean(currentAuthUser);
     adminLogoutButton.hidden = !currentAuthUser;
 
     if (!currentAuthUser) {
@@ -1033,7 +1029,7 @@ async function applyAuthenticatedSession(session) {
         mapAccessGate.hidden = false;
         accessStatus.textContent = 'چوونەژوورەوە پێویستە';
         mapAccessMessage.textContent = 'بۆ بینینی نەخشە، بە هەژماری خۆت بچۆرە ژوورەوە.';
-        if (supabaseClient && !adminLoginDialog.open) adminLoginDialog.showModal();
+        if (supabaseClient) adminEmailInput.focus();
         return;
     }
 
@@ -1046,7 +1042,8 @@ async function initializeOnlineAccess() {
     mapAccessGate.hidden = false;
 
     if (!supabaseClient) {
-        adminLoginButton.disabled = true;
+        adminEmailInput.disabled = true;
+        adminPasswordInput.disabled = true;
         gateLoginButton.disabled = true;
         accessStatus.textContent = 'Supabase ڕێکنەخراوە';
         if (supabaseUrl && !isSupabaseProjectUrl) {
@@ -1065,7 +1062,8 @@ async function initializeOnlineAccess() {
 
     await storageReady;
 
-    adminLoginButton.disabled = false;
+    adminEmailInput.disabled = false;
+    adminPasswordInput.disabled = false;
     gateLoginButton.disabled = false;
 
     supabaseClient.auth.onAuthStateChange(function (event, session) {
@@ -1083,14 +1081,6 @@ async function initializeOnlineAccess() {
     await applyAuthenticatedSession(sessionResult.data.session);
 }
 
-function openAdminLogin() {
-    if (supabaseClient && !adminLoginDialog.open) {
-        adminLoginError.hidden = true;
-        adminLoginError.textContent = '';
-        adminLoginDialog.showModal();
-    }
-}
-
 async function migrateLegacyMapToCloud() {
     if (!isMapAdmin || !legacyLocalFeatureCollection ||
         !legacyLocalFeatureCollection.features.length) return;
@@ -1104,12 +1094,6 @@ async function migrateLegacyMapToCloud() {
         await loadCloudMap();
     }
 }
-
-adminLoginButton.addEventListener('click', openAdminLogin);
-gateLoginButton.addEventListener('click', openAdminLogin);
-closeAdminLoginButton.addEventListener('click', function () {
-    adminLoginDialog.close();
-});
 
 adminLoginForm.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -1142,7 +1126,6 @@ adminLoginForm.addEventListener('submit', async function (event) {
     }
 
     adminPasswordInput.value = '';
-    adminLoginDialog.close();
 });
 
 adminLogoutButton.addEventListener('click', async function () {

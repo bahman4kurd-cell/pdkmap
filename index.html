@@ -33,7 +33,6 @@
         </div>
         <div class="access-panel">
             <span id="accessStatus" role="status" aria-live="polite">چوونەژوورەوە پێویستە</span>
-            <button type="button" id="adminLoginButton">چوونەژوورەوە</button>
             <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
             <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
         </div>
@@ -82,7 +81,14 @@
         <section class="map-access-message" aria-labelledby="mapAccessTitle">
             <h1 id="mapAccessTitle">چوونەژوورەوە پێویستە</h1>
             <p id="mapAccessMessage">بۆ بینینی نەخشە، بە هەژماری خۆت بچۆرە ژوورەوە.</p>
-            <button type="button" id="gateLoginButton">چوونەژوورەوە</button>
+            <form id="adminLoginForm" class="access-login-form">
+                <label for="adminEmail">ئیمەیڵ</label>
+                <input type="email" id="adminEmail" autocomplete="username" required>
+                <label for="adminPassword">وشەی نهێنی</label>
+                <input type="password" id="adminPassword" autocomplete="current-password" required>
+                <p id="adminLoginError" role="alert" hidden></p>
+                <button type="submit" id="gateLoginButton">چوونەژوورەوە</button>
+            </form>
         </section>
     </div>
     <div id="namedPointDialog" class="point-dialog-backdrop" hidden>
@@ -96,21 +102,6 @@
             </div>
         </form>
     </div>
-    <dialog id="adminLoginDialog" class="admin-login-dialog">
-        <form id="adminLoginForm" class="point-dialog">
-            <h4>چوونەژوورەوە</h4>
-            <label for="adminEmail">ئیمەیڵ</label>
-            <input type="email" id="adminEmail" autocomplete="username" required>
-            <label for="adminPassword">وشەی نهێنی</label>
-            <input type="password" id="adminPassword" autocomplete="current-password" required>
-            <p id="adminLoginError" role="alert" hidden></p>
-            <div class="point-dialog-actions">
-                <button type="submit">چوونەژوورەوە</button>
-                <button type="button" id="closeAdminLogin">داخستن</button>
-            </div>
-        </form>
-    </dialog>
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -128,6 +119,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=authenticated-viewers-admins"></script>
+    <script src="main.js?v=full-login-page"></script>
 </body>
 </html>

@@ -17,3 +17,7 @@ on conflict (user_id) do nothing;
 6. Deploy `index.html`, `main.js`, `style.css`, and `supabase-config.js` to an HTTPS static host.
 
 All users sign in with the accounts created in step 2. Supabase Row Level Security blocks unauthenticated reads, gives authenticated users read-only access, and allows writes only to admins. On the first admin sign-in, if the cloud map is empty and this browser has existing IndexedDB map data, the app offers to upload that data. Do not clear the old browser data until the migration finishes and the shared map is verified.
+
+## Confirmation emails
+
+Supabase's built-in SMTP is limited and may only deliver to project-team addresses. If a manually created account is waiting for confirmation, an administrator can confirm that user from Authentication > Users. For regular email delivery, configure a trusted custom SMTP provider in Authentication > SMTP Settings. Do not disable email confirmation while public sign-ups are enabled.

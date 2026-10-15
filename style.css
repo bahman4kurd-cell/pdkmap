@@ -65,6 +65,35 @@ body, html {
     color: #4b5563;
 }
 
+.access-login-form {
+    display: grid;
+    gap: 8px;
+    text-align: right;
+}
+
+.access-login-form label {
+    color: #374151;
+    font-size: 13px;
+}
+
+.access-login-form input {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #9ca3af;
+    border-radius: 5px;
+    font: inherit;
+}
+
+.access-login-form input:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.access-login-form #adminLoginError {
+    text-align: right;
+}
+
 .map-access-message button {
     min-height: 42px;
     border: 0;
