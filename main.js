@@ -86,6 +86,10 @@ var adminLoginForm = document.getElementById('adminLoginForm');
 var adminEmailInput = document.getElementById('adminEmail');
 var adminPasswordInput = document.getElementById('adminPassword');
 var adminLoginError = document.getElementById('adminLoginError');
+var adminPasswordLabel = document.getElementById('adminPasswordLabel');
+var gateLoginButton = document.getElementById('gateLoginButton');
+var mapAccessTitle = document.getElementById('mapAccessTitle');
+var passwordRecoveryPending = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 var locationResult = document.getElementById('locationResult');
 var regionFilter = document.getElementById('regionFilter');
 var applyRegionStyleButton = document.getElementById('applyRegionStyle');
@@ -1037,6 +1041,30 @@ async function applyAuthenticatedSession(session) {
     await loadCloudMap();
 }
 
+function showPasswordRecoveryForm(session) {
+    passwordRecoveryPending = true;
+    var recoveryEmail = session && session.user && session.user.email;
+    if (recoveryEmail) adminEmailInput.value = recoveryEmail;
+    adminEmailInput.readOnly = true;
+    adminPasswordInput.value = '';
+    adminPasswordInput.autocomplete = 'new-password';
+    adminPasswordLabel.textContent = 'وشەی نهێنیی نوێ';
+    gateLoginButton.textContent = 'نوێکردنەوەی وشەی نهێنی';
+    mapAccessTitle.textContent = 'دابنانی وشەی نهێنی نوێ';
+    mapAccessMessage.textContent = 'وشەی نهێنیی نوێ بنووسە بۆ هەژمارەکەت.';
+    adminLoginError.hidden = true;
+    mapAccessGate.hidden = false;
+    adminPasswordInput.focus();
+}
+
+function restoreLoginForm() {
+    adminEmailInput.readOnly = false;
+    adminPasswordInput.autocomplete = 'current-password';
+    adminPasswordLabel.textContent = 'وشەی نهێنی';
+    gateLoginButton.textContent = 'چوونەژوورەوە';
+    mapAccessTitle.textContent = 'چوونەژوورەوە پێویستە';
+}
+
 async function initializeOnlineAccess() {
     setMapEditorPermissions(false);
     mapAccessGate.hidden = false;
@@ -1067,7 +1095,15 @@ async function initializeOnlineAccess() {
     gateLoginButton.disabled = false;
 
     supabaseClient.auth.onAuthStateChange(function (event, session) {
+        if (event === 'PASSWORD_RECOVERY') {
+            showPasswordRecoveryForm(session);
+            return;
+        }
         if (event === 'INITIAL_SESSION') return;
+        if (passwordRecoveryPending) {
+            if (event !== 'USER_UPDATED' && session) showPasswordRecoveryForm(session);
+            return;
+        }
         window.setTimeout(function () {
             applyAuthenticatedSession(session);
         }, 0);
@@ -1076,6 +1112,10 @@ async function initializeOnlineAccess() {
     var sessionResult = await supabaseClient.auth.getSession();
     if (sessionResult.error) {
         accessStatus.textContent = 'پشکنینی چوونەژوورەوە سەرکەوتوو نەبوو.';
+        return;
+    }
+    if (passwordRecoveryPending) {
+        showPasswordRecoveryForm(sessionResult.data.session);
         return;
     }
     await applyAuthenticatedSession(sessionResult.data.session);
@@ -1098,6 +1138,27 @@ async function migrateLegacyMapToCloud() {
 adminLoginForm.addEventListener('submit', async function (event) {
     event.preventDefault();
     adminLoginError.hidden = true;
+
+    if (passwordRecoveryPending) {
+        try {
+            var updateResult = await supabaseClient.auth.updateUser({
+                password: adminPasswordInput.value
+            });
+            if (updateResult.error) throw updateResult.error;
+
+            passwordRecoveryPending = false;
+            adminPasswordInput.value = '';
+            restoreLoginForm();
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            var sessionResult = await supabaseClient.auth.getSession();
+            await applyAuthenticatedSession(sessionResult.data.session);
+        } catch (error) {
+            adminLoginError.textContent = 'نوێکردنەوەی وشەی نهێنی سەرکەوتوو نەبوو؛ ئەگەر لینکەکە کۆنە، داوای لینکێکی نوێ بکە.';
+            adminLoginError.hidden = false;
+        }
+        return;
+    }
+
     var loginError = null;
     try {
         var result = await supabaseClient.auth.signInWithPassword({
