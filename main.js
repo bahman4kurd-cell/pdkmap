@@ -90,6 +90,7 @@ var adminPasswordLabel = document.getElementById('adminPasswordLabel');
 var gateLoginButton = document.getElementById('gateLoginButton');
 var mapAccessTitle = document.getElementById('mapAccessTitle');
 var passwordRecoveryPending = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+var loginSubmissionPending = false;
 var locationResult = document.getElementById('locationResult');
 var regionFilter = document.getElementById('regionFilter');
 var applyRegionStyleButton = document.getElementById('applyRegionStyle');
@@ -1100,6 +1101,7 @@ async function initializeOnlineAccess() {
             return;
         }
         if (event === 'INITIAL_SESSION') return;
+        if (event === 'SIGNED_IN' && loginSubmissionPending) return;
         if (passwordRecoveryPending) {
             if (event !== 'USER_UPDATED' && session) showPasswordRecoveryForm(session);
             return;
@@ -1163,17 +1165,23 @@ adminLoginForm.addEventListener('submit', async function (event) {
     }
 
     var loginError = null;
+    var loginSession = null;
+    loginSubmissionPending = true;
+    gateLoginButton.disabled = true;
     try {
         var result = await supabaseClient.auth.signInWithPassword({
             email: adminEmailInput.value.trim(),
             password: adminPasswordInput.value
         });
         loginError = result.error;
+        loginSession = result.data && result.data.session;
     } catch (error) {
         loginError = error;
     }
 
     if (loginError) {
+        loginSubmissionPending = false;
+        gateLoginButton.disabled = false;
         var errorMessage = String(loginError.message || loginError).toLowerCase();
         var errorCode = String(loginError.code || '').toLowerCase();
         if (/fetch|network|dns|name_not_resolved|failed to send/.test(errorMessage) ||
@@ -1191,6 +1199,16 @@ adminLoginForm.addEventListener('submit', async function (event) {
     }
 
     adminPasswordInput.value = '';
+    try {
+        await applyAuthenticatedSession(loginSession);
+    } catch (error) {
+        console.error('Authenticated session could not be applied:', error);
+        adminLoginError.textContent = 'چوونەژوورەوە سەرکەوتوو بوو، بەڵام بارکردنی نەخشە سەرکەوتوو نەبوو.';
+        adminLoginError.hidden = false;
+    } finally {
+        loginSubmissionPending = false;
+        gateLoginButton.disabled = false;
+    }
 });
 
 adminLogoutButton.addEventListener('click', async function () {
