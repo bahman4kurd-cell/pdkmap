@@ -123,6 +123,7 @@ var namedPointTitle = document.getElementById('namedPointTitle');
 var namedPointNameLabel = document.getElementById('namedPointNameLabel');
 var cancelNamedPointButton = document.getElementById('cancelNamedPoint');
 var pendingNamedPointLatLng = null;
+var pendingRegionLayer = null;
 var supabaseUrl = window.MAP_SUPABASE_URL || '';
 var supabaseAnonKey = window.MAP_SUPABASE_ANON_KEY || '';
 var isSupabaseProjectUrl = (function (value) {
@@ -1288,6 +1289,7 @@ function setNamedPointPlacement(active) {
     if (!active) {
         namedPointDialog.hidden = true;
         pendingNamedPointLatLng = null;
+        pendingRegionLayer = null;
         editingLabelLayer = null;
         namedPointTitle.textContent = 'ناوی خاڵ';
         namedPointNameLabel.textContent = 'ناوی شوێن';
@@ -1392,6 +1394,35 @@ namedPointForm.addEventListener('submit', function (event) {
         return;
     }
 
+    if (pendingRegionLayer) {
+        if (!isMapAdmin) return;
+        if (!pointName) {
+            namedPointNameInput.focus();
+            return;
+        }
+
+        var regionLayer = pendingRegionLayer;
+        pendingRegionLayer = null;
+        regionLayer.regionName = normalizeRegionName(pointName);
+        regionLayer.filterName = regionLayer.regionName;
+        addRegionFilterOption(regionLayer.regionName);
+        enableRegionSelection(regionLayer);
+        addRegionLabel(regionLayer);
+
+        var regionTitle = document.createElement('b');
+        regionTitle.textContent = regionLayer.regionName;
+        regionLayer.bindPopup(regionTitle);
+        drawnItems.addLayer(regionLayer);
+        namedPointDialog.hidden = true;
+        namedPointNameInput.value = '';
+        namedPointTitle.textContent = 'ناوی خاڵ';
+        namedPointNameLabel.textContent = 'ناوی شوێن';
+        showSelectedRegion(regionFilter.value);
+        saveRegions();
+        sync3DRegions();
+        return;
+    }
+
     if (!pendingNamedPointLatLng || !pointName) {
         namedPointNameInput.focus();
         return;
@@ -1439,23 +1470,15 @@ map.on(L.Draw.Event.CREATED, function (e) {
     layer.kind = 'region';
     layer.regionStyle = getSelectedStyle();
     layer.setStyle(layer.regionStyle);
-    
-    var regionName = prompt("ناوی ئەم ناوچەیە یان لیژنەیە چییە؟ (بۆ نموونە: لیژنەی ناوچەی یەک)");
-    layer.regionName = normalizeRegionName(regionName);
-    layer.filterName = normalizeRegionName(regionName);
-    addRegionFilterOption(layer.regionName);
-    enableRegionSelection(layer);
-    addRegionLabel(layer);
-    if (regionName) {
-        var title = document.createElement('b');
-        title.textContent = layer.regionName;
-        layer.bindPopup(title);
-    }
 
-    drawnItems.addLayer(layer);
-    showSelectedRegion(regionFilter.value);
-    saveRegions();
-    sync3DRegions();
+    pendingRegionLayer = layer;
+    pendingNamedPointLatLng = null;
+    editingLabelLayer = null;
+    namedPointTitle.textContent = 'ناوی سنوور';
+    namedPointNameLabel.textContent = 'ناوی لیژنە یان ناوچە';
+    namedPointNameInput.value = '';
+    namedPointDialog.hidden = false;
+    namedPointNameInput.focus();
 });
 
 map.on(L.Draw.Event.EDITED, function () {
