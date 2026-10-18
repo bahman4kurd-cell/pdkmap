@@ -65,6 +65,12 @@ body, html {
     color: #4b5563;
 }
 
+.map-access-message .creator-credit {
+    font-size: 11px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
 .access-login-form {
     display: grid;
     gap: 8px;
@@ -218,6 +224,20 @@ body, html {
     color: #374151;
     font-size: 12px;
     line-height: 1.5;
+}
+
+.creator-credit {
+    margin: 0;
+    text-align: center;
+}
+
+.creator-credit-panel {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 10px;
+    line-height: 1.5;
+    color: #6b7280;
 }
 
 .admin-login-dialog {
