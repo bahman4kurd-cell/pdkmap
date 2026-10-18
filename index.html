@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=creator-credit-20261018" />
+    <link rel="stylesheet" href="style.css?v=delete-targeted-20261018" />
 </head>
 <body>
 
@@ -50,6 +50,8 @@
             <span>ئیدیتی ناو</span>
         </button>
         <button type="button" id="createSubRegionButton" disabled>دروستکردنی sub-polygon</button>
+        <button type="button" id="deleteSelectedRegionButton" class="danger-action" disabled>سڕینەوەی polygon</button>
+        <button type="button" id="deleteSelectedSubRegionButton" class="danger-action" disabled>سڕینەوەی sub-polygon</button>
         <label class="map-layer-toggle" for="streetMapToggle">
             <input type="checkbox" id="streetMapToggle" checked>
             پیشاندانی شەقام و شوێنەکان
@@ -105,6 +107,16 @@
             </div>
         </form>
     </div>
+    <div id="deleteRegionDialog" class="point-dialog-backdrop" hidden>
+        <section class="point-dialog" role="alertdialog" aria-modal="true" aria-labelledby="deleteRegionTitle" aria-describedby="deleteRegionMessage">
+            <h4 id="deleteRegionTitle">دڵنیایی سڕینەوە</h4>
+            <p id="deleteRegionMessage"></p>
+            <div class="point-dialog-actions">
+                <button type="button" id="confirmDeleteRegion" class="danger-action">سڕینەوە</button>
+                <button type="button" id="cancelDeleteRegion">هەڵوەشاندنەوە</button>
+            </div>
+        </section>
+    </div>
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -122,6 +134,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=nested-polygons-20261018"></script>
+    <script src="main.js?v=delete-targeted-20261018"></script>
 </body>
 </html>

@@ -206,6 +206,10 @@ body, html {
     cursor: not-allowed;
 }
 
+.style-panel button.danger-action {
+    background: #b91c1c;
+}
+
 .access-panel {
     display: grid;
     gap: 6px;
@@ -504,6 +508,12 @@ body, html {
     font-size: 16px;
 }
 
+.point-dialog p {
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
 .point-dialog label {
     color: #374151;
     font-size: 13px;
@@ -539,6 +549,11 @@ body, html {
 .point-dialog-actions button[type="button"] {
     background: #e5e7eb;
     color: #374151;
+}
+
+.point-dialog-actions button.danger-action {
+    background: #b91c1c;
+    color: #fff;
 }
 
 .leaflet-draw {

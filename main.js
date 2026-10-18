@@ -97,6 +97,13 @@ var applyRegionStyleButton = document.getElementById('applyRegionStyle');
 var refreshRegionInfoButton = document.getElementById('refreshRegionInfo');
 var editNamedLabelButton = document.getElementById('editNamedLabelButton');
 var createSubRegionButton = document.getElementById('createSubRegionButton');
+var deleteSelectedRegionButton = document.getElementById('deleteSelectedRegionButton');
+var deleteSelectedSubRegionButton = document.getElementById('deleteSelectedSubRegionButton');
+var deleteRegionDialog = document.getElementById('deleteRegionDialog');
+var deleteRegionMessage = document.getElementById('deleteRegionMessage');
+var confirmDeleteRegionButton = document.getElementById('confirmDeleteRegion');
+var cancelDeleteRegionButton = document.getElementById('cancelDeleteRegion');
+var pendingDeleteRegionLayer = null;
 var regionInfoResults = document.getElementById('regionInfoResults');
 var selectedRegionLayer = null;
 var selectedLabelLayer = null;
@@ -819,7 +826,101 @@ function updateSubRegionButton() {
     createSubRegionButton.textContent = isDrawingSubRegion ?
         'هەڵوەشاندنەوەی sub-polygon' : 'دروستکردنی sub-polygon';
     createSubRegionButton.setAttribute('aria-pressed', String(isDrawingSubRegion));
+    updateRegionDeleteButtons();
 }
+
+function updateRegionDeleteButtons() {
+    var hasRegion = Boolean(selectedRegionLayer && selectedRegionLayer.kind !== 'named-point');
+    var hasPendingDraw = Boolean(isDrawingSubRegion || pendingRegionLayer);
+    deleteSelectedRegionButton.disabled = !isMapAdmin || !hasRegion ||
+        Boolean(selectedRegionLayer && selectedRegionLayer.parentRegionId) || hasPendingDraw;
+    deleteSelectedSubRegionButton.disabled = !isMapAdmin || !hasRegion ||
+        !Boolean(selectedRegionLayer && selectedRegionLayer.parentRegionId) || hasPendingDraw;
+}
+
+function getRegionSubtreeIds(rootRegionId) {
+    var regionIds = new Set([rootRegionId]);
+    var changed = true;
+    while (changed) {
+        changed = false;
+        drawnItems.eachLayer(function (layer) {
+            if (layer.kind !== 'named-point' && layer.parentRegionId &&
+                regionIds.has(layer.parentRegionId) && !regionIds.has(layer.regionId)) {
+                regionIds.add(layer.regionId);
+                changed = true;
+            }
+        });
+    }
+    return regionIds;
+}
+
+function requestDeleteSelectedRegion(deleteSubRegion) {
+    if (!isMapAdmin || !selectedRegionLayer || selectedRegionLayer.kind === 'named-point') return;
+    var isSubRegion = Boolean(selectedRegionLayer.parentRegionId);
+    if (deleteSubRegion !== isSubRegion) return;
+
+    pendingDeleteRegionLayer = selectedRegionLayer;
+    var subtree = getRegionSubtreeIds(selectedRegionLayer.regionId);
+    var descendants = subtree.size - 1;
+    var description = isSubRegion ?
+        'sub-polygonی «' + selectedRegionLayer.regionName + '»' :
+        'polygonی «' + selectedRegionLayer.regionName + '»';
+    if (descendants) description += ' و ' + descendants + ' sub-polygonی وابەستە';
+    deleteRegionMessage.textContent = 'دڵنیایت لە سڕینەوەی ' + description + '؟';
+    deleteRegionDialog.hidden = false;
+    confirmDeleteRegionButton.focus();
+}
+
+function finishDeleteSelectedRegion() {
+    var target = pendingDeleteRegionLayer;
+    if (!isMapAdmin || !target) return;
+
+    var regionIds = getRegionSubtreeIds(target.regionId);
+    drawnItems.getLayers().slice().forEach(function (layer) {
+        if (layer.kind !== 'named-point' && regionIds.has(layer.regionId)) {
+            drawnItems.removeLayer(layer);
+        }
+    });
+
+    if (selectedRegionLayer && regionIds.has(selectedRegionLayer.regionId)) {
+        regionFilter.value = '';
+        selectRegion(null);
+    }
+    if (selectedLabelLayer && regionIds.has(selectedLabelLayer.regionId)) {
+        setSelectedLabelLayer(null);
+    }
+
+    Array.from(regionFilter.options).forEach(function (option) {
+        if (!option.value || committeeRegions.some(function (region) {
+            return region.name === option.value;
+        })) return;
+        var stillExists = drawnItems.getLayers().some(function (layer) {
+            return layer.kind !== 'named-point' && getRegionFilterName(layer) === option.value;
+        });
+        if (!stillExists) option.remove();
+    });
+
+    pendingDeleteRegionLayer = null;
+    deleteRegionDialog.hidden = true;
+    showSelectedRegion(regionFilter.value);
+    saveRegions();
+    sync3DRegions();
+}
+
+deleteSelectedRegionButton.addEventListener('click', function () {
+    requestDeleteSelectedRegion(false);
+});
+
+deleteSelectedSubRegionButton.addEventListener('click', function () {
+    requestDeleteSelectedRegion(true);
+});
+
+confirmDeleteRegionButton.addEventListener('click', finishDeleteSelectedRegion);
+
+cancelDeleteRegionButton.addEventListener('click', function () {
+    pendingDeleteRegionLayer = null;
+    deleteRegionDialog.hidden = true;
+});
 
 function addRegionLabel(layer) {
     if (!layer.regionName) return;
