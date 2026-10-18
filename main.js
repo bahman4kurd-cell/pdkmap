@@ -96,10 +96,15 @@ var regionFilter = document.getElementById('regionFilter');
 var applyRegionStyleButton = document.getElementById('applyRegionStyle');
 var refreshRegionInfoButton = document.getElementById('refreshRegionInfo');
 var editNamedLabelButton = document.getElementById('editNamedLabelButton');
+var createSubRegionButton = document.getElementById('createSubRegionButton');
 var regionInfoResults = document.getElementById('regionInfoResults');
 var selectedRegionLayer = null;
 var selectedLabelLayer = null;
 var editingLabelLayer = null;
+var isDrawingSubRegion = false;
+var pendingSubRegionParent = null;
+var pendingRegionParentId = null;
+var subRegionDrawHandler = null;
 var regionInfoCache = new WeakMap();
 var regionInfoAbortController = null;
 var regionInfoRequestLayer = null;
@@ -215,6 +220,8 @@ function getRegionFeatureCollection() {
         feature.properties = Object.assign({}, feature.properties, {
             name: layer.regionName || '',
             kind: layer.kind || 'region',
+            regionId: layer.regionId || null,
+            parentRegionId: layer.parentRegionId || null,
             filterName: getRegionFilterName(layer),
             leafletId: String(layer._leaflet_id),
             color: layer.regionStyle.color,
@@ -227,9 +234,73 @@ function getRegionFeatureCollection() {
     return { type: 'FeatureCollection', features: features };
 }
 
+function createRegionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+    }
+    return 'region-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
 function getRegionFilterName(layer) {
     if (layer.kind === 'named-point') return '';
     return layer.filterName || normalizeRegionName(layer.regionName);
+}
+
+function findRegionLayerById(regionId) {
+    if (!regionId) return null;
+    var matchingLayer = null;
+    drawnItems.eachLayer(function (layer) {
+        if (!matchingLayer && layer.kind !== 'named-point' && layer.regionId === regionId) {
+            matchingLayer = layer;
+        }
+    });
+    return matchingLayer;
+}
+
+function getRegionDepth(layer) {
+    var depth = 0;
+    var parentRegionId = layer && layer.parentRegionId;
+    while (parentRegionId) {
+        depth += 1;
+        var parentLayer = findRegionLayerById(parentRegionId);
+        if (!parentLayer) break;
+        parentRegionId = parentLayer.parentRegionId;
+    }
+    return depth;
+}
+
+function getSelectedRegionLayer(regionName) {
+    var normalizedName = normalizeRegionName(regionName);
+    if (!normalizedName) return null;
+    var matchingLayer = null;
+    drawnItems.eachLayer(function (layer) {
+        if (!matchingLayer && layer.kind !== 'named-point' &&
+            getRegionFilterName(layer) === normalizedName) {
+            matchingLayer = layer;
+        }
+    });
+    return matchingLayer;
+}
+
+function isRegionRelatedToSelection(layer, selectedLayer) {
+    if (!layer || !selectedLayer) return false;
+    if (layer === selectedLayer) return true;
+
+    var ancestor = layer;
+    while (ancestor.parentRegionId) {
+        if (ancestor.parentRegionId === selectedLayer.regionId) return true;
+        ancestor = findRegionLayerById(ancestor.parentRegionId);
+        if (!ancestor) break;
+    }
+
+    ancestor = selectedLayer;
+    while (ancestor.parentRegionId) {
+        if (ancestor.parentRegionId === layer.regionId) return true;
+        ancestor = findRegionLayerById(ancestor.parentRegionId);
+        if (!ancestor) break;
+    }
+
+    return false;
 }
 
 function setSelectedLabelLayer(layer) {
@@ -241,11 +312,16 @@ function findRegionForNamedPoint(pointLayer) {
     var latlng = pointLayer.getLatLng();
     var point = turf.point([latlng.lng, latlng.lat]);
     var matchingRegion = null;
+    var matchingDepth = -1;
 
     drawnItems.eachLayer(function (layer) {
-        if (matchingRegion || layer.kind === 'named-point') return;
+        if (layer.kind === 'named-point') return;
         if (turf.booleanPointInPolygon(point, layer.toGeoJSON())) {
-            matchingRegion = layer;
+            var depth = getRegionDepth(layer);
+            if (depth > matchingDepth) {
+                matchingRegion = layer;
+                matchingDepth = depth;
+            }
         }
     });
 
@@ -297,6 +373,7 @@ function sync3DRegionLabels() {
 
     var features = getRegionFeatureCollection().features;
     var activeLabelIds = new Set();
+    var selectedRegion = getSelectedRegionLayer(regionFilter.value);
 
     features.forEach(function (feature) {
         var properties = feature.properties;
@@ -359,8 +436,9 @@ function sync3DRegionLabels() {
             label.getElement().setAttribute('aria-label', properties.name);
         }
 
+        var regionLayer = findRegionLayerById(properties.regionId);
         label.getElement().hidden = Boolean(!isNamedPoint && regionFilter.value &&
-            properties.filterName !== regionFilter.value);
+            !isRegionRelatedToSelection(regionLayer, selectedRegion));
     });
 
     map3DRegionLabels.forEach(function (label, labelId) {
@@ -377,8 +455,19 @@ function update3DRegionFilter() {
     sync3DRegionLabels();
     if (!map3D.isStyleLoaded() || !map3D.getLayer('committee-fill')) return;
 
-    var filter = regionFilter.value ?
-        ['==', ['get', 'filterName'], regionFilter.value] : null;
+    var selectedRegion = getSelectedRegionLayer(regionFilter.value);
+    var visibleRegionIds = [];
+    if (selectedRegion) {
+        drawnItems.eachLayer(function (layer) {
+            if (layer.kind !== 'named-point' &&
+                isRegionRelatedToSelection(layer, selectedRegion)) {
+                visibleRegionIds.push(layer.regionId);
+            }
+        });
+    }
+    var filter = !regionFilter.value ? null : selectedRegion ?
+        ['in', ['get', 'regionId'], ['literal', visibleRegionIds]] :
+        ['==', ['get', 'filterName'], regionFilter.value];
     ['committee-fill', 'committee-outline'].forEach(function (id) {
         map3D.setFilter(id, filter);
     });
@@ -704,10 +793,10 @@ function loadRegionInfo(layer, forceRefresh) {
 }
 
 function showSelectedRegion(regionName) {
+    var selectedLayer = getSelectedRegionLayer(regionName);
     drawnItems.eachLayer(function (layer) {
         if (layer.kind === 'named-point') return;
-        var isVisible = !regionName ||
-            getRegionFilterName(layer) === normalizeRegionName(regionName);
+        var isVisible = !regionName || isRegionRelatedToSelection(layer, selectedLayer);
         layer.setStyle(isVisible ? layer.regionStyle : { opacity: 0, fillOpacity: 0 });
         if (layer.getTooltip()) {
             if (isVisible) {
@@ -721,6 +810,15 @@ function showSelectedRegion(regionName) {
             layer._path.style.pointerEvents = isVisible ? '' : 'none';
         }
     });
+}
+
+function updateSubRegionButton() {
+    var hasParent = Boolean(selectedRegionLayer && selectedRegionLayer.kind !== 'named-point');
+    createSubRegionButton.disabled = !isMapAdmin || Boolean(pendingRegionLayer) ||
+        (!hasParent && !isDrawingSubRegion);
+    createSubRegionButton.textContent = isDrawingSubRegion ?
+        'هەڵوەشاندنەوەی sub-polygon' : 'دروستکردنی sub-polygon';
+    createSubRegionButton.setAttribute('aria-pressed', String(isDrawingSubRegion));
 }
 
 function addRegionLabel(layer) {
@@ -756,6 +854,7 @@ function selectRegion(layer) {
     selectedRegionLayer = layer;
     if (layer) setSelectedLabelLayer(layer);
     applyRegionStyleButton.disabled = !isMapAdmin || !layer;
+    updateSubRegionButton();
     refreshRegionInfoButton.disabled = !layer;
     if (!layer) {
         setSelectedLabelLayer(null);
@@ -824,6 +923,9 @@ function loadFeatureCollection(savedRegions) {
                     return;
                 }
 
+                layer.regionId = properties.regionId || createRegionId();
+                layer.parentRegionId = properties.parentRegionId || null;
+                if (!properties.regionId) regionNameChanged = true;
                 layer.regionName = normalizeRegionName(properties.name);
                 layer.filterName = properties.filterName || normalizeRegionName(properties.name);
                 if (layer.regionName !== (properties.name || '')) regionNameChanged = true;
@@ -902,9 +1004,11 @@ function setMapEditorPermissions(canEdit) {
     fillOpacityInput.disabled = !isMapAdmin;
     addNamedPointButton.disabled = !isMapAdmin;
     applyRegionStyleButton.disabled = !isMapAdmin || !selectedRegionLayer;
+    updateSubRegionButton();
     editNamedLabelButton.disabled = !isMapAdmin || !selectedLabelLayer;
     refreshRegionInfoButton.disabled = !selectedRegionLayer;
     if (!isMapAdmin && isPlacingNamedPoint) setNamedPointPlacement(false);
+    if (!isMapAdmin && isDrawingSubRegion) cancelSubRegionDrawing();
     drawnItems.eachLayer(function (layer) {
         if (layer.kind === 'named-point' && layer.dragging) {
             if (isMapAdmin && !layer.dragging.enabled()) layer.dragging.enable();
@@ -1232,6 +1336,57 @@ function refreshDrawStyle() {
     });
 }
 
+function getSubRegionStyle(parentRegion) {
+    var childPalette = [
+        { color: '#b45309', fillColor: '#fde68a' },
+        { color: '#0369a1', fillColor: '#bae6fd' },
+        { color: '#15803d', fillColor: '#bbf7d0' },
+        { color: '#a21caf', fillColor: '#f5d0fe' },
+        { color: '#be123c', fillColor: '#fecdd3' }
+    ];
+    var siblingCount = 0;
+    drawnItems.eachLayer(function (layer) {
+        if (layer.parentRegionId === parentRegion.regionId) siblingCount += 1;
+    });
+
+    var style = Object.assign({}, getSelectedStyle(), childPalette[siblingCount % childPalette.length]);
+    if (parentRegion.regionStyle && style.color === parentRegion.regionStyle.color &&
+        style.fillColor === parentRegion.regionStyle.fillColor) {
+        style = Object.assign({}, style, childPalette[(siblingCount + 1) % childPalette.length]);
+    }
+    return style;
+}
+
+function cancelSubRegionDrawing() {
+    if (subRegionDrawHandler && subRegionDrawHandler.enabled()) {
+        subRegionDrawHandler.disable();
+    }
+    subRegionDrawHandler = null;
+    isDrawingSubRegion = false;
+    pendingSubRegionParent = null;
+    updateSubRegionButton();
+}
+
+function beginSubRegionDrawing() {
+    if (isDrawingSubRegion) {
+        cancelSubRegionDrawing();
+        return;
+    }
+    if (!isMapAdmin || !selectedRegionLayer || selectedRegionLayer.kind === 'named-point') return;
+
+    pendingSubRegionParent = selectedRegionLayer;
+    isDrawingSubRegion = true;
+    updateSubRegionButton();
+    locationResult.textContent = 'سنووری بچووک لەناو سنووری ' +
+        selectedRegionLayer.regionName + ' بکێشە.';
+    subRegionDrawHandler = new L.Draw.Polygon(map, {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: getSubRegionStyle(selectedRegionLayer)
+    });
+    subRegionDrawHandler.enable();
+}
+
 // ٥. زیادکردنی ئامرازی کێشان بۆ سەر نەخشە
 var drawControl = new L.Control.Draw({
     position: 'topright',
@@ -1275,6 +1430,8 @@ refreshRegionInfoButton.addEventListener('click', function () {
     loadRegionInfo(selectedRegionLayer, true);
 });
 
+createSubRegionButton.addEventListener('click', beginSubRegionDrawing);
+
 function setNamedPointPlacement(active) {
     if (active && !isMapAdmin) return;
     isPlacingNamedPoint = active;
@@ -1285,9 +1442,11 @@ function setNamedPointPlacement(active) {
         namedPointDialog.hidden = true;
         pendingNamedPointLatLng = null;
         pendingRegionLayer = null;
+        pendingRegionParentId = null;
         editingLabelLayer = null;
         namedPointTitle.textContent = 'ناوی خاڵ';
         namedPointNameLabel.textContent = 'ناوی شوێن';
+        updateSubRegionButton();
     }
 }
 
@@ -1398,6 +1557,9 @@ namedPointForm.addEventListener('submit', function (event) {
 
         var regionLayer = pendingRegionLayer;
         pendingRegionLayer = null;
+        regionLayer.regionId = regionLayer.regionId || createRegionId();
+        regionLayer.parentRegionId = pendingRegionParentId || null;
+        pendingRegionParentId = null;
         regionLayer.regionName = normalizeRegionName(pointName);
         regionLayer.filterName = regionLayer.regionName;
         addRegionFilterOption(regionLayer.regionName);
@@ -1412,6 +1574,8 @@ namedPointForm.addEventListener('submit', function (event) {
         namedPointNameInput.value = '';
         namedPointTitle.textContent = 'ناوی خاڵ';
         namedPointNameLabel.textContent = 'ناوی شوێن';
+        regionFilter.value = regionLayer.regionName;
+        selectRegion(regionLayer);
         showSelectedRegion(regionFilter.value);
         saveRegions();
         sync3DRegions();
@@ -1447,10 +1611,16 @@ editNamedLabelButton.addEventListener('click', function () {
 });
 
 addNamedPointButton.addEventListener('click', function () {
+    if (isDrawingSubRegion) cancelSubRegionDrawing();
     setNamedPointPlacement(!isPlacingNamedPoint);
 });
 
 document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && isDrawingSubRegion) {
+        event.preventDefault();
+        cancelSubRegionDrawing();
+        return;
+    }
     if (event.key === 'Escape' && isPlacingNamedPoint) {
         event.preventDefault();
         setNamedPointPlacement(false);
@@ -1461,14 +1631,32 @@ document.addEventListener('keydown', function (event) {
 map.on(L.Draw.Event.CREATED, function (e) {
     if (!isMapAdmin) return;
     var layer = e.layer;
+    var parentRegion = null;
+
+    if (isDrawingSubRegion) {
+        parentRegion = pendingSubRegionParent;
+        isDrawingSubRegion = false;
+        pendingSubRegionParent = null;
+        subRegionDrawHandler = null;
+        updateSubRegionButton();
+
+        if (!parentRegion || !turf.booleanWithin(layer.toGeoJSON(), parentRegion.toGeoJSON())) {
+            locationResult.textContent = 'سنووری بچووک دەبێت بە تەواوی لەناو سنووری parent بێت.';
+            return;
+        }
+    }
 
     layer.kind = 'region';
-    layer.regionStyle = getSelectedStyle();
+    layer.regionId = createRegionId();
+    layer.parentRegionId = parentRegion ? parentRegion.regionId : null;
+    layer.regionStyle = parentRegion ? getSubRegionStyle(parentRegion) : getSelectedStyle();
     layer.setStyle(layer.regionStyle);
 
     pendingRegionLayer = layer;
+    pendingRegionParentId = parentRegion ? parentRegion.regionId : null;
     pendingNamedPointLatLng = null;
     editingLabelLayer = null;
+    updateSubRegionButton();
     namedPointTitle.textContent = 'ناوی سنوور';
     namedPointNameLabel.textContent = 'ناوی لیژنە یان ناوچە';
     namedPointNameInput.value = '';
@@ -1493,14 +1681,18 @@ map.on('click', function (event) {
 
     var clickedPoint = turf.point([event.latlng.lng, event.latlng.lat]);
     var matchingRegion = null;
+    var matchingDepth = -1;
 
     drawnItems.eachLayer(function (layer) {
-        if (matchingRegion) return;
         if (layer.kind === 'named-point') return;
 
         var feature = layer.toGeoJSON();
         if (turf.booleanPointInPolygon(clickedPoint, feature)) {
-            matchingRegion = layer;
+            var depth = getRegionDepth(layer);
+            if (depth > matchingDepth) {
+                matchingRegion = layer;
+                matchingDepth = depth;
+            }
         }
     });
 
