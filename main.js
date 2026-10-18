@@ -253,37 +253,32 @@ function findRegionForNamedPoint(pointLayer) {
 }
 
 function focusRegionFromNamedPoint(pointLayer, mode) {
-    setSelectedLabelLayer(pointLayer);
+    var pointLocation = pointLayer.getLatLng();
     var region = findRegionForNamedPoint(pointLayer);
-    if (!region) {
+
+    if (region) {
+        regionFilter.value = getRegionFilterName(region);
+        selectRegion(region);
+        showSelectedRegion(regionFilter.value);
+        locationResult.textContent = 'خاڵەکە لە سنووری ' + region.regionName + ' ـدایە.';
+    } else {
+        regionFilter.value = '';
+        selectRegion(null);
+        showSelectedRegion('');
         locationResult.textContent = 'بۆ ئەم خاڵە هیچ سنووری لیژنەیەک نەدۆزرایەوە.';
-        return;
     }
 
-    regionFilter.value = getRegionFilterName(region);
-    selectRegion(region);
-    showSelectedRegion(regionFilter.value);
-    locationResult.textContent = 'خاڵەکە لە سنووری ' + region.regionName + ' ـدایە.';
-
+    setSelectedLabelLayer(pointLayer);
     if (mode === '3d' && map3D) {
-        var bounds = region.getBounds();
-        map3D.fitBounds([
-            [bounds.getWest(), bounds.getSouth()],
-            [bounds.getEast(), bounds.getNorth()]
-        ], {
-            padding: 80,
-            maxZoom: 16,
+        map3D.flyTo({
+            center: [pointLocation.lng, pointLocation.lat],
+            zoom: 16,
             pitch: 60,
             duration: 800
         });
     } else {
-        map.flyToBounds(region.getBounds(), {
-            padding: [60, 60],
-            maxZoom: 16,
-            duration: 0.8
-        });
+        map.flyTo(pointLocation, 17, { duration: 0.8 });
     }
-    setSelectedLabelLayer(pointLayer);
 }
 
 function sync3DRegions() {
