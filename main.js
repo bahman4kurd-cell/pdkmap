@@ -171,7 +171,9 @@ function normalizeRegionName(regionName) {
 
     var regionBody = trimmedName.replace(/^لیژنەی\s+/, '');
     var committee = committeeRegions.find(function (region) {
-        return regionBody === region.areaName || regionBody === region.name;
+        return regionBody === region.areaName || regionBody === region.name ||
+            trimmedName.endsWith(' ' + region.areaName) ||
+            trimmedName.endsWith(' ' + region.name);
     });
     return committee ? committee.name : trimmedName;
 }
