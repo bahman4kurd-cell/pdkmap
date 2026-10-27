@@ -152,6 +152,8 @@ var isMapAdmin = false;
 var currentAuthUser = null;
 var legacyLocalFeatureCollection = null;
 var cloudSaveQueue = Promise.resolve();
+var cloudRealtimeChannel = null;
+var localCloudUpdateTimes = new Set();
 
 maplibregl.setRTLTextPlugin(
     'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js',
@@ -231,6 +233,7 @@ function getRegionFeatureCollection() {
             parentRegionId: layer.parentRegionId || null,
             filterName: getRegionFilterName(layer),
             leafletId: String(layer._leaflet_id),
+            style: Object.assign({}, layer.regionStyle),
             color: layer.regionStyle.color,
             fillColor: layer.regionStyle.fillColor,
             fillOpacity: layer.regionStyle.fillOpacity
@@ -250,7 +253,7 @@ function createRegionId() {
 
 function getRegionFilterName(layer) {
     if (layer.kind === 'named-point') return '';
-    return layer.filterName || normalizeRegionName(layer.regionName);
+    return normalizeRegionName(layer.filterName || layer.regionName);
 }
 
 function findRegionLayerById(regionId) {
@@ -999,12 +1002,19 @@ function loadFeatureCollection(savedRegions) {
     if (savedRegions && Array.isArray(savedRegions.features)) {
         savedRegions.features.forEach(function (feature) {
             var properties = feature.properties || {};
+            var savedStyle = properties.style || {};
             var regionStyle = Object.assign({
                 color: '#0056b3',
                 fillColor: '#3388ff',
                 fillOpacity: 0.3,
                 weight: 5
-            }, properties.style || {}, { weight: 5 });
+            }, {
+                color: savedStyle.color || properties.color || '#0056b3',
+                fillColor: savedStyle.fillColor || properties.fillColor || '#3388ff',
+                fillOpacity: savedStyle.fillOpacity == null ?
+                    (properties.fillOpacity == null ? 0.3 : properties.fillOpacity) :
+                    savedStyle.fillOpacity
+            }, savedStyle, { weight: 5 });
             var region = L.geoJSON(feature, { style: regionStyle });
 
             region.eachLayer(function (layer) {
@@ -1028,7 +1038,7 @@ function loadFeatureCollection(savedRegions) {
                 layer.parentRegionId = properties.parentRegionId || null;
                 if (!properties.regionId) regionNameChanged = true;
                 layer.regionName = normalizeRegionName(properties.name);
-                layer.filterName = properties.filterName || normalizeRegionName(properties.name);
+                layer.filterName = normalizeRegionName(properties.filterName || properties.name);
                 if (layer.regionName !== (properties.name || '')) regionNameChanged = true;
                 layer.regionStyle = regionStyle;
                 addRegionFilterOption(layer.regionName);
@@ -1129,15 +1139,23 @@ function writeCloudFeatureCollection(collection) {
     }
 
     cloudSaveQueue = cloudSaveQueue.catch(function () {}).then(async function () {
-        var result = await supabaseClient.from('map_state').upsert({
-            id: 'sulaymaniyah',
-            data: collection,
-            updated_at: new Date().toISOString(),
-            updated_by: currentAuthUser.id
-        });
-        if (result.error) throw result.error;
-        storageStatus.textContent = 'هەموو داتاکان بۆ cloud خەزن کران';
-        return true;
+        var updatedAt = new Date().toISOString();
+        localCloudUpdateTimes.add(Date.parse(updatedAt));
+        try {
+            var result = await supabaseClient.from('map_state').upsert({
+                id: 'sulaymaniyah',
+                data: collection,
+                updated_at: updatedAt,
+                updated_by: currentAuthUser.id
+            });
+            if (result.error) throw result.error;
+            storageStatus.textContent = 'هەموو داتاکان بۆ cloud خەزن کران';
+            return true;
+        } finally {
+            window.setTimeout(function () {
+                localCloudUpdateTimes.delete(Date.parse(updatedAt));
+            }, 60000);
+        }
     }).catch(function (error) {
         console.error('نەتوانرا داتاکان لە cloud خەزن بکرێن:', error);
         storageStatus.textContent = 'خەزنکردن سەرکەوتوو نەبوو؛ پەیوەندی یان مۆڵەتی ئەدمین بپشکنە.';
@@ -1193,6 +1211,44 @@ async function loadCloudMap() {
     }
 }
 
+function subscribeToCloudMap() {
+    if (!supabaseClient || !currentAuthUser || cloudRealtimeChannel) return;
+
+    cloudRealtimeChannel = supabaseClient.channel('map-state-sulaymaniyah')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'map_state',
+            filter: 'id=eq.sulaymaniyah'
+        }, function (payload) {
+            var record = payload.new;
+            if (!record || record.id !== 'sulaymaniyah') return;
+
+            var updatedAt = Date.parse(record.updated_at);
+            if (record.updated_by === currentAuthUser.id &&
+                localCloudUpdateTimes.has(updatedAt)) return;
+
+            loadFeatureCollection(record.data || {
+                type: 'FeatureCollection',
+                features: []
+            });
+            setMapEditorPermissions(isMapAdmin);
+            storageStatus.textContent = 'داتای نوێی cloud لایڤ نوێ کرایەوە';
+        })
+        .subscribe(function (status, error) {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.error('پەیوەندی نوێکردنەوەی لایڤی ماپ سەرکەوتوو نەبوو:', error);
+                storageStatus.textContent = 'نوێکردنەوەی لایڤ چالاک نییە؛ ڕێکخستنی Realtime بپشکنە.';
+            }
+        });
+}
+
+function unsubscribeFromCloudMap() {
+    if (!supabaseClient || !cloudRealtimeChannel) return;
+    supabaseClient.removeChannel(cloudRealtimeChannel);
+    cloudRealtimeChannel = null;
+}
+
 async function readLegacyLocalFeatureCollection() {
     var database = await storageReady;
     if (!database) return { type: 'FeatureCollection', features: [] };
@@ -1229,6 +1285,7 @@ async function applyAuthenticatedSession(session) {
     adminLogoutButton.hidden = !currentAuthUser;
 
     if (!currentAuthUser) {
+        unsubscribeFromCloudMap();
         migrateLocalDataButton.hidden = true;
         legacyLocalFeatureCollection = null;
         loadFeatureCollection({ type: 'FeatureCollection', features: [] });
@@ -1242,6 +1299,7 @@ async function applyAuthenticatedSession(session) {
     mapAccessGate.hidden = true;
     accessStatus.textContent = canEdit ? 'ئەدمین: دەستکاری چالاکە' : 'بینەر: تەنها بینین';
     await loadCloudMap();
+    subscribeToCloudMap();
 }
 
 function showPasswordRecoveryForm(session) {
@@ -1807,7 +1865,7 @@ map.on('click', function (event) {
         return;
     }
 
-    regionFilter.value = normalizeRegionName(matchingRegion.regionName);
+    regionFilter.value = getRegionFilterName(matchingRegion);
     selectRegion(matchingRegion);
     showSelectedRegion(regionFilter.value);
 
