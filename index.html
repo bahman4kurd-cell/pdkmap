@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=delete-targeted-20261018" />
+    <link rel="stylesheet" href="style.css?v=named-point-colors-20261027" />
 </head>
 <body>
 
@@ -49,6 +49,9 @@
             </svg>
             <span>ئیدیتی ناو</span>
         </button>
+        <label for="namedPointColor">ڕەنگی پۆینتی هەڵبژێردراو</label>
+        <input type="color" id="namedPointColor" value="#e11d48" disabled>
+        <button type="button" id="applyNamedPointColor" disabled>گۆڕینی ڕەنگی پۆینت</button>
         <button type="button" id="createSubRegionButton" disabled>دروستکردنی sub-polygon</button>
         <button type="button" id="deleteSelectedRegionButton" class="danger-action" disabled>سڕینەوەی polygon</button>
         <button type="button" id="deleteSelectedSubRegionButton" class="danger-action" disabled>سڕینەوەی sub-polygon</button>
@@ -134,6 +137,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=region-three-filter-alias-20261027"></script>
+    <script src="main.js?v=named-point-colors-20261027"></script>
 </body>
 </html>

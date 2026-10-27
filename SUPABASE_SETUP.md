@@ -18,7 +18,7 @@ on conflict (user_id) do nothing;
 
 If the Supabase project was already set up, run the updated `supabase-schema.sql` again in its SQL Editor to enable Realtime. Redeploy the updated site files as well.
 
-All users sign in with the accounts created in step 2. Supabase Row Level Security blocks unauthenticated reads, gives authenticated users read-only access, and allows writes only to admins. On the first admin sign-in, if the cloud map is empty and this browser has existing IndexedDB map data, the app offers to upload that data. Do not clear the old browser data until the migration finishes and the shared map is verified.
+All users sign in with the accounts created in step 2. Supabase Row Level Security blocks unauthenticated reads, gives authenticated users read-only access, and allows writes only to admins. Named points, including each point's color and location, are saved with the shared map and synchronized live to other open sessions. Select a named point to change its color. On the first admin sign-in, if the cloud map is empty and this browser has existing IndexedDB map data, the app offers to upload that data. Do not clear the old browser data until the migration finishes and the shared map is verified.
 
 ## Confirmation emails
 

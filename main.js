@@ -120,6 +120,9 @@ var borderColorInput = document.getElementById('borderColor');
 var fillColorInput = document.getElementById('fillColor');
 var fillOpacityInput = document.getElementById('fillOpacity');
 var opacityValue = document.getElementById('opacityValue');
+var namedPointColorInput = document.getElementById('namedPointColor');
+var applyNamedPointColorButton = document.getElementById('applyNamedPointColor');
+var defaultNamedPointColor = '#e11d48';
 var map2DButton = document.getElementById('map2DButton');
 var map3DButton = document.getElementById('map3DButton');
 var satelliteModeButton = document.getElementById('satelliteMapButton');
@@ -197,10 +200,15 @@ committeeRegions.forEach(function (region) {
     regionFilter.add(option);
 });
 
-function createNamedPointContent(name, className) {
+function normalizeNamedPointColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color || '') ? color : defaultNamedPointColor;
+}
+
+function createNamedPointContent(name, className, color) {
     var content = document.createElement('div');
     content.className = className;
     content.dir = 'rtl';
+    content.style.setProperty('--named-point-color', normalizeNamedPointColor(color));
 
     var icon = document.createElement('span');
     icon.className = 'named-point-symbol';
@@ -214,10 +222,10 @@ function createNamedPointContent(name, className) {
     return content;
 }
 
-function createNamedPointIcon(name) {
+function createNamedPointIcon(name, color) {
     return L.divIcon({
         className: 'named-point-marker',
-        html: createNamedPointContent(name, 'named-point-content'),
+        html: createNamedPointContent(name, 'named-point-content', color),
         iconSize: [1, 1],
         iconAnchor: [0, 0]
     });
@@ -238,7 +246,9 @@ function getRegionFeatureCollection() {
             style: Object.assign({}, layer.regionStyle),
             color: layer.regionStyle.color,
             fillColor: layer.regionStyle.fillColor,
-            fillOpacity: layer.regionStyle.fillOpacity
+            fillOpacity: layer.regionStyle.fillOpacity,
+            pointColor: layer.kind === 'named-point' ?
+                normalizeNamedPointColor(layer.pointColor) : null
         });
         features.push(feature);
     });
@@ -313,11 +323,6 @@ function isRegionRelatedToSelection(layer, selectedLayer) {
     }
 
     return false;
-}
-
-function setSelectedLabelLayer(layer) {
-    selectedLabelLayer = layer;
-    editNamedLabelButton.disabled = !isMapAdmin || !layer;
 }
 
 function findRegionForNamedPoint(pointLayer) {
@@ -399,7 +404,7 @@ function sync3DRegionLabels() {
             turf.pointOnFeature(feature).geometry.coordinates;
         if (!label) {
             var element = isNamedPoint ?
-                createNamedPointContent(properties.name, 'map3d-named-point') :
+                createNamedPointContent(properties.name, 'map3d-named-point', properties.pointColor) :
                 document.createElement('div');
             if (!isNamedPoint) {
                 element.className = 'map3d-region-label';
@@ -440,7 +445,11 @@ function sync3DRegionLabels() {
             if (isNamedPoint) label.setDraggable(isMapAdmin);
             if (isNamedPoint) {
                 label.getElement().replaceChildren(
-                    createNamedPointContent(properties.name, 'map3d-named-point')
+                    createNamedPointContent(
+                        properties.name,
+                        'map3d-named-point',
+                        properties.pointColor
+                    )
                 );
             } else {
                 label.getElement().textContent = properties.name;
@@ -943,7 +952,13 @@ function addRegionLabel(layer) {
 
 function setSelectedLabelLayer(layer) {
     selectedLabelLayer = layer;
-    editNamedLabelButton.disabled = !layer;
+    editNamedLabelButton.disabled = !isMapAdmin || !layer;
+    var isNamedPoint = Boolean(layer && layer.kind === 'named-point');
+    namedPointColorInput.disabled = !isMapAdmin || !isNamedPoint;
+    applyNamedPointColorButton.disabled = !isMapAdmin || !isNamedPoint;
+    if (isNamedPoint) {
+        namedPointColorInput.value = normalizeNamedPointColor(layer.pointColor);
+    }
 }
 
 function enableRegionSelection(layer) {
@@ -1024,8 +1039,9 @@ function loadFeatureCollection(savedRegions) {
                 if (layer.kind === 'named-point') {
                     layer.pointName = properties.name || '';
                     layer.regionName = layer.pointName;
+                    layer.pointColor = normalizeNamedPointColor(properties.pointColor);
                     layer.regionStyle = {};
-                    layer.setIcon(createNamedPointIcon(layer.pointName));
+                    layer.setIcon(createNamedPointIcon(layer.pointName, layer.pointColor));
                     if (layer.pointName) {
                         var pointTitle = document.createElement('b');
                         pointTitle.textContent = layer.pointName;
@@ -1119,6 +1135,10 @@ function setMapEditorPermissions(canEdit) {
     applyRegionStyleButton.disabled = !isMapAdmin || !selectedRegionLayer;
     updateSubRegionButton();
     editNamedLabelButton.disabled = !isMapAdmin || !selectedLabelLayer;
+    namedPointColorInput.disabled = !isMapAdmin ||
+        !selectedLabelLayer || selectedLabelLayer.kind !== 'named-point';
+    applyNamedPointColorButton.disabled = !isMapAdmin ||
+        !selectedLabelLayer || selectedLabelLayer.kind !== 'named-point';
     refreshRegionInfoButton.disabled = !selectedRegionLayer;
     if (!isMapAdmin && isPlacingNamedPoint) setNamedPointPlacement(false);
     if (!isMapAdmin && isDrawingSubRegion) cancelSubRegionDrawing();
@@ -1578,6 +1598,19 @@ fillOpacityInput.addEventListener('input', function () {
 borderColorInput.addEventListener('input', refreshDrawStyle);
 fillColorInput.addEventListener('input', refreshDrawStyle);
 
+applyNamedPointColorButton.addEventListener('click', function () {
+    if (!isMapAdmin || !selectedLabelLayer ||
+        selectedLabelLayer.kind !== 'named-point') return;
+
+    selectedLabelLayer.pointColor = normalizeNamedPointColor(namedPointColorInput.value);
+    selectedLabelLayer.setIcon(createNamedPointIcon(
+        selectedLabelLayer.pointName,
+        selectedLabelLayer.pointColor
+    ));
+    saveRegions();
+    sync3DRegions();
+});
+
 applyRegionStyleButton.addEventListener('click', function () {
     if (!isMapAdmin || !selectedRegionLayer) return;
 
@@ -1620,8 +1653,9 @@ function beginNamedPointPlacement(latlng) {
 
 function addNamedPoint(latlng, pointName) {
     if (!isMapAdmin) return;
+    var pointColor = defaultNamedPointColor;
     var marker = L.marker(latlng, {
-        icon: createNamedPointIcon(pointName),
+        icon: createNamedPointIcon(pointName, pointColor),
         title: pointName,
         alt: pointName,
         keyboard: true,
@@ -1629,6 +1663,7 @@ function addNamedPoint(latlng, pointName) {
     });
     marker.kind = 'named-point';
     marker.pointName = pointName;
+    marker.pointColor = pointColor;
     marker.regionName = pointName;
     marker.regionStyle = {};
 
@@ -1648,7 +1683,7 @@ function updateEditableLabel(layer, newName) {
         layer.pointName = newName;
         layer.regionName = newName;
         layer.options.title = newName;
-        layer.setIcon(createNamedPointIcon(newName));
+        layer.setIcon(createNamedPointIcon(newName, layer.pointColor));
     } else {
         layer.regionName = normalizeRegionName(newName);
         if (!layer.filterName) layer.filterName = normalizeRegionName(newName);

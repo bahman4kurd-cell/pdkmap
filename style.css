@@ -458,7 +458,7 @@ body, html {
 .named-point-symbol svg {
     width: 42px;
     height: 50px;
-    fill: #e11d48;
+    fill: var(--named-point-color, #e11d48);
     stroke: #fff;
     stroke-width: 1.5;
 }
