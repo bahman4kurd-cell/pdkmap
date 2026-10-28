@@ -880,7 +880,7 @@ function focusRegionView(layer) {
     if (currentMapMode === '3d' && map3D) {
         var bounds = layer.getBounds();
         map3D.once('moveend', function () {
-            map3D.zoomTo(Math.min(15, map3D.getZoom() + 1), { duration: 500 });
+            map3D.zoomTo(Math.min(15, map3D.getZoom() + 2), { duration: 500 });
         });
         map3D.fitBounds([
             [bounds.getWest(), bounds.getSouth()],
@@ -895,7 +895,7 @@ function focusRegionView(layer) {
     }
 
     map.once('moveend', function () {
-        map.setZoom(Math.min(15, map.getZoom() + 1), { animate: true });
+        map.setZoom(Math.min(15, map.getZoom() + 2), { animate: true });
     });
     map.flyToBounds(layer.getBounds(), {
         paddingTopLeft: [250, 36],
