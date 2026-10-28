@@ -490,12 +490,15 @@ function update3DRegionFilter() {
     var filter = !regionFilter.value ? null : selectedRegion ?
         ['in', ['get', 'regionId'], ['literal', visibleRegionIds]] :
         ['==', ['get', 'filterName'], regionFilter.value];
-    ['committee-fill', 'committee-outline'].forEach(function (id) {
+    [
+        'committee-fill',
+        'committee-extrusion',
+        'committee-cap',
+        'committee-outline',
+        'committee-glow'
+    ].forEach(function (id) {
         if (map3D.getLayer(id)) map3D.setFilter(id, filter);
     });
-    if (map3D.getLayer('committee-glow')) {
-        map3D.setFilter('committee-glow', filter);
-    }
     if (map3D.getLayer('committee-selected-glow')) {
         map3D.setFilter('committee-selected-glow', selectedRegion ?
             ['==', ['get', 'regionId'], selectedRegion.regionId] :
@@ -530,7 +533,7 @@ function sync3DSelectionOutline() {
     polygons.forEach(function (rings) {
         rings.forEach(function (ring) {
             ring.forEach(function (coordinate, index) {
-                var point = map3D.project(coordinate);
+                var point = map3D.project(coordinate, 220);
                 pathData.push((index ? 'L' : 'M') + point.x + ' ' + point.y);
             });
             pathData.push('Z');
@@ -589,33 +592,32 @@ function initialize3DMap() {
     map3D.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map3D.on('load', function () {
+        map3D.getStyle().layers.forEach(function (layer) {
+            if (layer.type === 'background') {
+                map3D.setPaintProperty(layer.id, 'background-color', '#777e81');
+            } else if (layer.type === 'fill') {
+                var isWater = String(layer.id).toLowerCase().includes('water') ||
+                    String(layer['source-layer'] || '').toLowerCase().includes('water');
+                map3D.setPaintProperty(layer.id, 'fill-color', isWater ? '#68757a' : '#858c8f');
+            } else if (layer.type === 'line') {
+                var isWaterLine = String(layer.id).toLowerCase().includes('water') ||
+                    String(layer['source-layer'] || '').toLowerCase().includes('water');
+                map3D.setPaintProperty(layer.id, 'line-color', isWaterLine ? '#75848a' : '#b6bec0');
+            } else if (layer.type === 'fill-extrusion' && layer.id === 'building-3d') {
+                map3D.setPaintProperty(layer.id, 'fill-extrusion-color', '#9ba2a4');
+            }
+        });
+
+        var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
+            return layer.type === 'symbol';
+        });
+        var firstSymbolLayerId = firstSymbolLayer && firstSymbolLayer.id;
+
         map3D.addSource('committee-regions', {
             type: 'geojson',
             data: getRegionFeatureCollection()
         });
 
-        map3D.addLayer({
-            id: 'committee-glow',
-            type: 'line',
-            source: 'committee-regions',
-            paint: {
-                'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
-                'line-width': 14,
-                'line-blur': 7,
-                'line-opacity': 0.48
-            }
-        });
-        map3D.addLayer({
-            id: 'committee-selected-glow',
-            type: 'line',
-            source: 'committee-regions',
-            paint: {
-                'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
-                'line-width': 12,
-                'line-blur': 5,
-                'line-opacity': 0.9
-            }
-        });
         map3D.addLayer({
             id: 'committee-fill',
             type: 'fill',
@@ -625,7 +627,53 @@ function initialize3DMap() {
                 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.3],
                 'fill-outline-color': ['coalesce', ['get', 'color'], '#0056b3']
             }
-        });
+        }, firstSymbolLayerId);
+        map3D.addLayer({
+            id: 'committee-extrusion',
+            type: 'fill-extrusion',
+            source: 'committee-regions',
+            paint: {
+                'fill-extrusion-color': '#e43b32',
+                'fill-extrusion-base': 0,
+                'fill-extrusion-height': 220,
+                'fill-extrusion-opacity': 0.92,
+                'fill-extrusion-vertical-gradient': true
+            }
+        }, firstSymbolLayerId);
+        map3D.addLayer({
+            id: 'committee-cap',
+            type: 'fill-extrusion',
+            source: 'committee-regions',
+            paint: {
+                'fill-extrusion-color': ['coalesce', ['get', 'fillColor'], '#3388ff'],
+                'fill-extrusion-base': 185,
+                'fill-extrusion-height': 220,
+                'fill-extrusion-opacity': 0.82,
+                'fill-extrusion-vertical-gradient': true
+            }
+        }, firstSymbolLayerId);
+        map3D.addLayer({
+            id: 'committee-glow',
+            type: 'line',
+            source: 'committee-regions',
+            paint: {
+                'line-color': '#8ceeff',
+                'line-width': 3,
+                'line-blur': 2,
+                'line-opacity': 0.95
+            }
+        }, firstSymbolLayerId);
+        map3D.addLayer({
+            id: 'committee-selected-glow',
+            type: 'line',
+            source: 'committee-regions',
+            paint: {
+                'line-color': '#e9fcff',
+                'line-width': 5,
+                'line-blur': 4,
+                'line-opacity': 1
+            }
+        }, firstSymbolLayerId);
         map3D.addLayer({
             id: 'committee-outline',
             type: 'line',
@@ -634,7 +682,7 @@ function initialize3DMap() {
                 'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
                 'line-width': 4
             }
-        });
+        }, firstSymbolLayerId);
         if (map3D.getLayer('building-3d')) {
             map3D.setPaintProperty('building-3d', 'fill-extrusion-base', [
                 'coalesce', ['to-number', ['get', 'render_min_height']], 0
