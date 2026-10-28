@@ -32,7 +32,9 @@ body, html {
 }
 
 #map .leaflet-overlay-pane path.region-selected-glow {
-    stroke-dasharray: 14 8;
+    stroke-width: 7px;
+    stroke-linecap: round;
+    stroke-dasharray: 12 7;
     animation:
         selected-region-perimeter 1.8s linear infinite,
         selected-region-glow 2.4s ease-in-out infinite;
@@ -54,7 +56,7 @@ body, html {
 
 @keyframes selected-region-perimeter {
     to {
-        stroke-dashoffset: -44;
+        stroke-dashoffset: -57;
     }
 }
 

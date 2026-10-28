@@ -884,7 +884,7 @@ function focusRegionView(layer) {
             [bounds.getEast(), bounds.getNorth()]
         ], {
             padding: { top: 40, right: 40, bottom: 40, left: 260 },
-            maxZoom: 12,
+            maxZoom: 15,
             pitch: 45,
             duration: 1000
         });
@@ -894,7 +894,7 @@ function focusRegionView(layer) {
     map.flyToBounds(layer.getBounds(), {
         paddingTopLeft: [250, 36],
         paddingBottomRight: [36, 36],
-        maxZoom: 12,
+        maxZoom: 15,
         duration: 1
     });
 }
