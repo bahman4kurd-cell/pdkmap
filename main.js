@@ -489,8 +489,16 @@ function update3DRegionFilter() {
         ['in', ['get', 'regionId'], ['literal', visibleRegionIds]] :
         ['==', ['get', 'filterName'], regionFilter.value];
     ['committee-fill', 'committee-outline'].forEach(function (id) {
-        map3D.setFilter(id, filter);
+        if (map3D.getLayer(id)) map3D.setFilter(id, filter);
     });
+    if (map3D.getLayer('committee-glow')) {
+        map3D.setFilter('committee-glow', filter);
+    }
+    if (map3D.getLayer('committee-selected-glow')) {
+        map3D.setFilter('committee-selected-glow', selectedRegion ?
+            ['==', ['get', 'regionId'], selectedRegion.regionId] :
+            ['==', ['get', 'regionId'], '']);
+    }
 }
 
 function selectRegionFrom3D(feature, event) {
@@ -507,6 +515,7 @@ function selectRegionFrom3D(feature, event) {
     regionFilter.value = getRegionFilterName(matchingLayer);
     selectRegion(matchingLayer);
     showSelectedRegion(regionFilter.value);
+    focusRegionView(matchingLayer);
 
     var message = 'سنووری ' + matchingLayer.regionName;
     new maplibregl.Popup()
@@ -548,6 +557,17 @@ function initialize3DMap() {
                 'line-width': 14,
                 'line-blur': 7,
                 'line-opacity': 0.48
+            }
+        });
+        map3D.addLayer({
+            id: 'committee-selected-glow',
+            type: 'line',
+            source: 'committee-regions',
+            paint: {
+                'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
+                'line-width': 12,
+                'line-blur': 5,
+                'line-opacity': 0.9
             }
         });
         map3D.addLayer({
@@ -618,17 +638,24 @@ function setMapMode(mode) {
             map3D.resize();
             sync3DRegions();
             if (selectedRegionLayer) {
-                var center = selectedRegionLayer.getBounds().getCenter();
-                map3D.flyTo({
-                    center: [center.lng, center.lat],
-                    zoom: 15,
-                    pitch: 60
+                focusRegionView(selectedRegionLayer);
+            } else {
+                map3D.fitBounds([[44.0, 34.0], [47.0, 36.85]], {
+                    padding: 20,
+                    duration: 0
                 });
             }
         });
     } else {
         syncLeafletBaseLayers();
         map.invalidateSize();
+        requestAnimationFrame(function () {
+            if (selectedRegionLayer) {
+                focusRegionView(selectedRegionLayer);
+            } else {
+                map.fitBounds(sulaymaniyahBounds, { padding: [20, 20], animate: false });
+            }
+        });
     }
 }
 
@@ -830,6 +857,9 @@ function showSelectedRegion(regionName) {
         if (layer.kind === 'named-point') return;
         var isVisible = !regionName || isRegionRelatedToSelection(layer, selectedLayer);
         layer.setStyle(isVisible ? layer.regionStyle : { opacity: 0, fillOpacity: 0 });
+        if (layer._path) {
+            layer._path.classList.toggle('region-selected-glow', layer === selectedLayer);
+        }
         if (layer.getTooltip()) {
             if (isVisible) {
                 layer.openTooltip();
@@ -841,6 +871,31 @@ function showSelectedRegion(regionName) {
             layer._path.style.visibility = isVisible ? '' : 'hidden';
             layer._path.style.pointerEvents = isVisible ? '' : 'none';
         }
+    });
+}
+
+function focusRegionView(layer) {
+    if (!layer) return;
+
+    if (currentMapMode === '3d' && map3D) {
+        var bounds = layer.getBounds();
+        map3D.fitBounds([
+            [bounds.getWest(), bounds.getSouth()],
+            [bounds.getEast(), bounds.getNorth()]
+        ], {
+            padding: { top: 40, right: 40, bottom: 40, left: 260 },
+            maxZoom: 12,
+            pitch: 45,
+            duration: 1000
+        });
+        return;
+    }
+
+    map.flyToBounds(layer.getBounds(), {
+        paddingTopLeft: [250, 36],
+        paddingBottomRight: [36, 36],
+        maxZoom: 12,
+        duration: 1
     });
 }
 
@@ -979,6 +1034,7 @@ function enableRegionSelection(layer) {
         regionFilter.value = getRegionFilterName(layer);
         selectRegion(layer);
         showSelectedRegion(regionFilter.value);
+        focusRegionView(layer);
     });
 }
 
@@ -1018,6 +1074,16 @@ regionFilter.addEventListener('change', function () {
     });
     selectRegion(matchingLayer);
     showSelectedRegion(regionFilter.value);
+    if (matchingLayer) {
+        focusRegionView(matchingLayer);
+    } else if (currentMapMode === '3d' && map3D) {
+        map3D.fitBounds([[44.0, 34.0], [47.0, 36.85]], {
+            padding: 20,
+            duration: 1000
+        });
+    } else {
+        map.flyToBounds(sulaymaniyahBounds, { padding: [20, 20], duration: 1 });
+    }
 });
 
 function loadFeatureCollection(savedRegions) {

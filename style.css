@@ -31,6 +31,13 @@ body, html {
         drop-shadow(0 0 12px rgba(59, 130, 246, 0.75));
 }
 
+#map .leaflet-overlay-pane path.region-selected-glow {
+    stroke-dasharray: 14 8;
+    animation:
+        selected-region-perimeter 1.8s linear infinite,
+        selected-region-glow 2.4s ease-in-out infinite;
+}
+
 @keyframes region-boundary-glow {
     0%, 100% {
         filter:
@@ -45,8 +52,32 @@ body, html {
     }
 }
 
+@keyframes selected-region-perimeter {
+    to {
+        stroke-dashoffset: -44;
+    }
+}
+
+@keyframes selected-region-glow {
+    0%, 100% {
+        filter:
+            drop-shadow(0 0 5px rgba(165, 243, 252, 0.95))
+            drop-shadow(0 0 12px rgba(59, 130, 246, 0.78));
+    }
+
+    50% {
+        filter:
+            drop-shadow(0 0 8px rgba(255, 255, 255, 1))
+            drop-shadow(0 0 18px rgba(59, 130, 246, 0.95));
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     #map .leaflet-overlay-pane path[fill-rule="evenodd"] {
+        animation: none;
+    }
+
+    #map .leaflet-overlay-pane path.region-selected-glow {
         animation: none;
     }
 }
