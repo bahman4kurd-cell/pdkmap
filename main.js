@@ -129,6 +129,8 @@ var addNamedPointButton = document.getElementById('addNamedPointButton');
 var map3DContainer = document.getElementById('map3d');
 var map3D = null;
 var map3DRegionLabels = new Map();
+var map3DSelectionOutline = null;
+var map3DSelectionOutlinePath = null;
 var isPlacingNamedPoint = false;
 var namedPointDialog = document.getElementById('namedPointDialog');
 var namedPointForm = document.getElementById('namedPointForm');
@@ -499,6 +501,50 @@ function update3DRegionFilter() {
             ['==', ['get', 'regionId'], selectedRegion.regionId] :
             ['==', ['get', 'regionId'], '']);
     }
+    sync3DSelectionOutline();
+}
+
+function sync3DSelectionOutline() {
+    if (!map3D || !map3DContainer || !map3D.isStyleLoaded()) return;
+
+    if (!map3DSelectionOutline) {
+        map3DSelectionOutline = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        map3DSelectionOutline.classList.add('map3d-selection-outline');
+        map3DSelectionOutline.setAttribute('aria-hidden', 'true');
+        map3DSelectionOutlinePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        map3DSelectionOutlinePath.classList.add('map3d-selection-outline-path');
+        map3DSelectionOutline.appendChild(map3DSelectionOutlinePath);
+        map3DContainer.appendChild(map3DSelectionOutline);
+    }
+
+    var selectedRegion = getSelectedRegionLayer(regionFilter.value);
+    if (!selectedRegion || currentMapMode !== '3d') {
+        map3DSelectionOutline.hidden = true;
+        return;
+    }
+
+    var geometry = selectedRegion.toGeoJSON().geometry;
+    var polygons = geometry.type === 'Polygon' ? [geometry.coordinates] :
+        geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+    var pathData = [];
+    polygons.forEach(function (rings) {
+        rings.forEach(function (ring) {
+            ring.forEach(function (coordinate, index) {
+                var point = map3D.project(coordinate);
+                pathData.push((index ? 'L' : 'M') + point.x + ' ' + point.y);
+            });
+            pathData.push('Z');
+        });
+    });
+
+    map3DSelectionOutline.setAttribute('viewBox',
+        '0 0 ' + map3D.getContainer().clientWidth + ' ' + map3D.getContainer().clientHeight);
+    map3DSelectionOutlinePath.setAttribute('d', pathData.join(' '));
+    map3DSelectionOutlinePath.style.setProperty(
+        '--selected-region-color',
+        selectedRegion.regionStyle.color || '#0056b3'
+    );
+    map3DSelectionOutline.hidden = !pathData.length;
 }
 
 function selectRegionFrom3D(feature, event) {
@@ -618,6 +664,7 @@ function initialize3DMap() {
 
         update3DRegionFilter();
         sync3DRegionLabels();
+        map3D.on('render', sync3DSelectionOutline);
     });
 }
 
@@ -856,7 +903,9 @@ function showSelectedRegion(regionName) {
     drawnItems.eachLayer(function (layer) {
         if (layer.kind === 'named-point') return;
         var isVisible = !regionName || isRegionRelatedToSelection(layer, selectedLayer);
-        layer.setStyle(isVisible ? layer.regionStyle : { opacity: 0, fillOpacity: 0 });
+        layer.setStyle(isVisible ?
+            Object.assign({}, layer.regionStyle, { opacity: 1 }) :
+            { opacity: 0, fillOpacity: 0 });
         if (layer._path) {
             layer._path.classList.toggle('region-selected-glow', layer === selectedLayer);
         }
