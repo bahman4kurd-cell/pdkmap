@@ -625,7 +625,7 @@ function initialize3DMap() {
             paint: {
                 'fill-color': ['coalesce', ['get', 'fillColor'], '#3388ff'],
                 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.3],
-                'fill-outline-color': ['coalesce', ['get', 'color'], '#0056b3']
+                'fill-outline-color': '#8ceeff'
             }
         }, firstSymbolLayerId);
         map3D.addLayer({
@@ -633,7 +633,7 @@ function initialize3DMap() {
             type: 'fill-extrusion',
             source: 'committee-regions',
             paint: {
-                'fill-extrusion-color': '#e43b32',
+                'fill-extrusion-color': '#8ceeff',
                 'fill-extrusion-base': 0,
                 'fill-extrusion-height': 220,
                 'fill-extrusion-opacity': 0.92,
@@ -668,7 +668,7 @@ function initialize3DMap() {
             type: 'line',
             source: 'committee-regions',
             paint: {
-                'line-color': '#e9fcff',
+                'line-color': '#8ceeff',
                 'line-width': 5,
                 'line-blur': 4,
                 'line-opacity': 1
@@ -679,7 +679,7 @@ function initialize3DMap() {
             type: 'line',
             source: 'committee-regions',
             paint: {
-                'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
+                'line-color': '#8ceeff',
                 'line-width': 4
             }
         }, firstSymbolLayerId);
