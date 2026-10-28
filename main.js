@@ -1,14 +1,13 @@
-// ١. تەسکرکردنەوەی سنووری نەخشە بۆ سلێمانی
+// مەودای بینینی پارێزگای سلێمانی، هەڵەبجە و ئیدارەی سەربەخۆی ڕاپەڕین
 var sulaymaniyahBounds = L.latLngBounds(
-    L.latLng(35.4500, 45.2500),
-    L.latLng(35.9500, 45.8000)
+    L.latLng(34.0000, 44.0000),
+    L.latLng(36.8500, 47.0000)
 );
 
-// ٢. دروستکردنی نەخشە
 var map = L.map('map', {
-    center: [35.5558, 45.4351],
-    zoom: 14,
-    minZoom: 12,
+    center: [35.4250, 45.5000],
+    zoom: 8,
+    minZoom: 8,
     maxZoom: 17,
     maxBounds: sulaymaniyahBounds,
     maxBoundsViscosity: 1.0
@@ -522,14 +521,14 @@ function initialize3DMap() {
     map3D = new maplibregl.Map({
         container: 'map3d',
         style: 'https://tiles.openfreemap.org/styles/liberty',
-        center: [45.4351, 35.5558],
-        zoom: 15,
-        minZoom: 14,
+        center: [45.5000, 35.4250],
+        zoom: 8,
+        minZoom: 8,
         maxZoom: 17,
         pitch: 60,
         bearing: -20,
         maxPitch: 75,
-        maxBounds: [[45.0, 35.2], [45.9, 36.1]],
+        maxBounds: [[44.0, 34.0], [47.0, 36.85]],
         attributionControl: true
     });
     map3D.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -1923,6 +1922,5 @@ map.on('click', function (event) {
         .openOn(map);
 });
 
-// زوومی سەرەتایی نەخشە لەسەر سەنتەری سلێمانی
-map.setView([35.5558, 45.4351], 14);
+map.fitBounds(sulaymaniyahBounds, { padding: [20, 20] });
 initializeOnlineAccess();
