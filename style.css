@@ -17,6 +17,40 @@ body, html {
     background: #fff;
 }
 
+#map .leaflet-overlay-pane path[fill-rule="evenodd"] {
+    filter:
+        drop-shadow(0 0 3px rgba(103, 232, 249, 0.85))
+        drop-shadow(0 0 8px rgba(59, 130, 246, 0.55));
+    animation: region-boundary-glow 3.2s ease-in-out infinite;
+    transition: filter 180ms ease;
+}
+
+#map .leaflet-overlay-pane path[fill-rule="evenodd"]:hover {
+    filter:
+        drop-shadow(0 0 5px rgba(165, 243, 252, 0.95))
+        drop-shadow(0 0 12px rgba(59, 130, 246, 0.75));
+}
+
+@keyframes region-boundary-glow {
+    0%, 100% {
+        filter:
+            drop-shadow(0 0 3px rgba(103, 232, 249, 0.72))
+            drop-shadow(0 0 7px rgba(59, 130, 246, 0.42));
+    }
+
+    50% {
+        filter:
+            drop-shadow(0 0 5px rgba(165, 243, 252, 0.95))
+            drop-shadow(0 0 11px rgba(59, 130, 246, 0.68));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #map .leaflet-overlay-pane path[fill-rule="evenodd"] {
+        animation: none;
+    }
+}
+
 #map3d {
     width: 100vw;
     height: 100vh;

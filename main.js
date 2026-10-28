@@ -540,12 +540,24 @@ function initialize3DMap() {
         });
 
         map3D.addLayer({
+            id: 'committee-glow',
+            type: 'line',
+            source: 'committee-regions',
+            paint: {
+                'line-color': ['coalesce', ['get', 'color'], '#0056b3'],
+                'line-width': 14,
+                'line-blur': 7,
+                'line-opacity': 0.48
+            }
+        });
+        map3D.addLayer({
             id: 'committee-fill',
             type: 'fill',
             source: 'committee-regions',
             paint: {
                 'fill-color': ['coalesce', ['get', 'fillColor'], '#3388ff'],
-                'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.3]
+                'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.3],
+                'fill-outline-color': ['coalesce', ['get', 'color'], '#0056b3']
             }
         });
         map3D.addLayer({
