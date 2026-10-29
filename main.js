@@ -461,11 +461,11 @@ function sync3DRegionLabels() {
 
         var regionLayer = findRegionLayerById(properties.regionId);
         label.getElement().hidden = false;
-        label.getElement().classList.toggle(
-            'region-focus-background',
-            Boolean(!isNamedPoint && selectedRegion &&
-                !isRegionRelatedToSelection(regionLayer, selectedRegion))
-        );
+        var isForeground = Boolean(!isNamedPoint && selectedRegion &&
+            isRegionRelatedToSelection(regionLayer, selectedRegion));
+        label.getElement().classList.toggle('region-focus-background',
+            Boolean(!isNamedPoint && selectedRegion && !isForeground));
+        label.getElement().classList.toggle('region-focus-foreground', isForeground);
     });
 
     map3DRegionLabels.forEach(function (label, labelId) {
@@ -950,6 +950,7 @@ function showSelectedRegion(regionName) {
             var tooltipElement = layer.getTooltip().getElement();
             if (tooltipElement) {
                 tooltipElement.classList.toggle('region-focus-background', isFocused && !isForeground);
+                tooltipElement.classList.toggle('region-focus-foreground', isForeground);
             }
         }
         if (isForeground && typeof layer.bringToFront === 'function') {

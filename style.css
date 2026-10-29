@@ -52,7 +52,7 @@ body, html {
         selected-region-glow 2.6s ease-in-out infinite;
 }
 
-#map .leaflet-overlay-pane path.region-focus-foreground:not(.region-selected-glow) {
+#map .leaflet-overlay-pane path.region-focus-foreground {
     fill-opacity: 0.82 !important;
 }
 
@@ -144,6 +144,12 @@ body, html {
 .maplibregl-map .region-focus-background {
     filter: blur(2px);
     opacity: 0.38;
+}
+
+.maplibregl-map .region-focus-foreground {
+    filter: none;
+    opacity: 1;
+    z-index: 4 !important;
 }
 
 #map3d {
