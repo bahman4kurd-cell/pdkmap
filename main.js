@@ -130,6 +130,7 @@ var map3DContainer = document.getElementById('map3d');
 var map3D = null;
 var map3DRegionLabels = new Map();
 var map3DSelectionOutline = null;
+var map3DSelectionFillPath = null;
 var map3DSelectionOutlinePath = null;
 var isPlacingNamedPoint = false;
 var namedPointDialog = document.getElementById('namedPointDialog');
@@ -459,8 +460,12 @@ function sync3DRegionLabels() {
         }
 
         var regionLayer = findRegionLayerById(properties.regionId);
-        label.getElement().hidden = Boolean(!isNamedPoint && regionFilter.value &&
-            !isRegionRelatedToSelection(regionLayer, selectedRegion));
+        label.getElement().hidden = false;
+        label.getElement().classList.toggle(
+            'region-focus-background',
+            Boolean(!isNamedPoint && selectedRegion &&
+                !isRegionRelatedToSelection(regionLayer, selectedRegion))
+        );
     });
 
     map3DRegionLabels.forEach(function (label, labelId) {
@@ -478,18 +483,6 @@ function update3DRegionFilter() {
     if (!map3D.isStyleLoaded() || !map3D.getLayer('committee-fill')) return;
 
     var selectedRegion = getSelectedRegionLayer(regionFilter.value);
-    var visibleRegionIds = [];
-    if (selectedRegion) {
-        drawnItems.eachLayer(function (layer) {
-            if (layer.kind !== 'named-point' &&
-                isRegionRelatedToSelection(layer, selectedRegion)) {
-                visibleRegionIds.push(layer.regionId);
-            }
-        });
-    }
-    var filter = !regionFilter.value ? null : selectedRegion ?
-        ['in', ['get', 'regionId'], ['literal', visibleRegionIds]] :
-        ['==', ['get', 'filterName'], regionFilter.value];
     [
         'committee-fill',
         'committee-extrusion',
@@ -497,7 +490,7 @@ function update3DRegionFilter() {
         'committee-outline',
         'committee-glow'
     ].forEach(function (id) {
-        if (map3D.getLayer(id)) map3D.setFilter(id, filter);
+        if (map3D.getLayer(id)) map3D.setFilter(id, null);
     });
     if (map3D.getLayer('committee-selected-glow')) {
         map3D.setFilter('committee-selected-glow', selectedRegion ?
@@ -514,8 +507,11 @@ function sync3DSelectionOutline() {
         map3DSelectionOutline = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         map3DSelectionOutline.classList.add('map3d-selection-outline');
         map3DSelectionOutline.setAttribute('aria-hidden', 'true');
+        map3DSelectionFillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        map3DSelectionFillPath.classList.add('map3d-selection-fill-path');
         map3DSelectionOutlinePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         map3DSelectionOutlinePath.classList.add('map3d-selection-outline-path');
+        map3DSelectionOutline.appendChild(map3DSelectionFillPath);
         map3DSelectionOutline.appendChild(map3DSelectionOutlinePath);
         map3DContainer.appendChild(map3DSelectionOutline);
     }
@@ -542,7 +538,13 @@ function sync3DSelectionOutline() {
 
     map3DSelectionOutline.setAttribute('viewBox',
         '0 0 ' + map3D.getContainer().clientWidth + ' ' + map3D.getContainer().clientHeight);
+    map3DSelectionFillPath.setAttribute('d', pathData.join(' '));
     map3DSelectionOutlinePath.setAttribute('d', pathData.join(' '));
+    map3DSelectionFillPath.style.setProperty(
+        '--selected-region-fill-color',
+        selectedRegion.regionStyle.fillColor || '#3388ff'
+    );
+    map3DSelectionFillPath.setAttribute('fill-rule', 'evenodd');
     map3DSelectionOutlinePath.style.setProperty(
         '--selected-region-color',
         selectedRegion.regionStyle.color || '#0056b3'
@@ -592,22 +594,6 @@ function initialize3DMap() {
     map3D.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map3D.on('load', function () {
-        map3D.getStyle().layers.forEach(function (layer) {
-            if (layer.type === 'background') {
-                map3D.setPaintProperty(layer.id, 'background-color', '#777e81');
-            } else if (layer.type === 'fill') {
-                var isWater = String(layer.id).toLowerCase().includes('water') ||
-                    String(layer['source-layer'] || '').toLowerCase().includes('water');
-                map3D.setPaintProperty(layer.id, 'fill-color', isWater ? '#68757a' : '#858c8f');
-            } else if (layer.type === 'line') {
-                var isWaterLine = String(layer.id).toLowerCase().includes('water') ||
-                    String(layer['source-layer'] || '').toLowerCase().includes('water');
-                map3D.setPaintProperty(layer.id, 'line-color', isWaterLine ? '#75848a' : '#b6bec0');
-            } else if (layer.type === 'fill-extrusion' && layer.id === 'building-3d') {
-                map3D.setPaintProperty(layer.id, 'fill-extrusion-color', '#9ba2a4');
-            }
-        });
-
         var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
             return layer.type === 'symbol';
         });
@@ -948,25 +934,26 @@ function loadRegionInfo(layer, forceRefresh) {
 
 function showSelectedRegion(regionName) {
     var selectedLayer = getSelectedRegionLayer(regionName);
+    var isFocused = Boolean(regionName && selectedLayer);
+    document.getElementById('map').classList.toggle('region-focus-active', isFocused);
+    map3DContainer.classList.toggle('region-focus-active', isFocused);
     drawnItems.eachLayer(function (layer) {
         if (layer.kind === 'named-point') return;
-        var isVisible = !regionName || isRegionRelatedToSelection(layer, selectedLayer);
-        layer.setStyle(isVisible ?
-            Object.assign({}, layer.regionStyle, { opacity: 1 }) :
-            { opacity: 0, fillOpacity: 0 });
+        var isForeground = isFocused && isRegionRelatedToSelection(layer, selectedLayer);
         if (layer._path) {
+            layer._path.classList.toggle('region-focus-background', isFocused && !isForeground);
+            layer._path.classList.toggle('region-focus-foreground', isForeground);
             layer._path.classList.toggle('region-selected-glow', layer === selectedLayer);
         }
         if (layer.getTooltip()) {
-            if (isVisible) {
-                layer.openTooltip();
-            } else {
-                layer.closeTooltip();
+            layer.openTooltip();
+            var tooltipElement = layer.getTooltip().getElement();
+            if (tooltipElement) {
+                tooltipElement.classList.toggle('region-focus-background', isFocused && !isForeground);
             }
         }
-        if (layer._path) {
-            layer._path.style.visibility = isVisible ? '' : 'hidden';
-            layer._path.style.pointerEvents = isVisible ? '' : 'none';
+        if (isForeground && typeof layer.bringToFront === 'function') {
+            layer.bringToFront();
         }
     });
 }
@@ -976,28 +963,22 @@ function focusRegionView(layer) {
 
     if (currentMapMode === '3d' && map3D) {
         var bounds = layer.getBounds();
-        map3D.once('moveend', function () {
-            map3D.zoomTo(Math.min(15, map3D.getZoom() + 2), { duration: 500 });
-        });
         map3D.fitBounds([
             [bounds.getWest(), bounds.getSouth()],
             [bounds.getEast(), bounds.getNorth()]
         ], {
-            padding: { top: 40, right: 40, bottom: 40, left: 260 },
-            maxZoom: 15,
+            padding: { top: 48, right: 48, bottom: 48, left: 280 },
+            maxZoom: 14,
             pitch: 45,
             duration: 1000
         });
         return;
     }
 
-    map.once('moveend', function () {
-        map.setZoom(Math.min(15, map.getZoom() + 2), { animate: true });
-    });
     map.flyToBounds(layer.getBounds(), {
-        paddingTopLeft: [250, 36],
-        paddingBottomRight: [36, 36],
-        maxZoom: 15,
+        paddingTopLeft: [280, 48],
+        paddingBottomRight: [48, 48],
+        maxZoom: 14,
         duration: 1
     });
 }

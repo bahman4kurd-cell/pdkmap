@@ -17,8 +17,10 @@ body, html {
     background: #858b8e;
 }
 
-#map .leaflet-tile-pane {
-    filter: grayscale(1) saturate(0.55) contrast(1.06);
+#map.region-focus-active .leaflet-tile-pane {
+    filter: blur(4px) brightness(0.7) saturate(0.75);
+    transform: scale(1.01);
+    transform-origin: center;
 }
 
 #map .leaflet-overlay-pane path[fill-rule="evenodd"] {
@@ -48,6 +50,21 @@ body, html {
     animation:
         selected-region-perimeter 2.6s linear infinite,
         selected-region-glow 2.6s ease-in-out infinite;
+}
+
+#map .leaflet-overlay-pane path.region-focus-foreground:not(.region-selected-glow) {
+    fill-opacity: 0.82 !important;
+}
+
+#map.region-focus-active .leaflet-overlay-pane path.region-focus-background {
+    filter: blur(2px) grayscale(0.75) !important;
+    opacity: 0.34 !important;
+    animation: none !important;
+}
+
+#map.region-focus-active .leaflet-tooltip-pane .region-focus-background {
+    filter: blur(2px);
+    opacity: 0.38;
 }
 
 @keyframes region-boundary-glow {
@@ -112,6 +129,21 @@ body, html {
         selected-region-perimeter 2.6s linear infinite,
         selected-region-glow 2.6s ease-in-out infinite;
     vector-effect: non-scaling-stroke;
+}
+
+#map3d.region-focus-active .maplibregl-canvas {
+    filter: blur(4px) brightness(0.68) saturate(0.75);
+}
+
+.map3d-selection-fill-path {
+    fill: var(--selected-region-fill-color, #3388ff);
+    fill-opacity: 0.84;
+    stroke: none;
+}
+
+.maplibregl-map .region-focus-background {
+    filter: blur(2px);
+    opacity: 0.38;
 }
 
 #map3d {
