@@ -17,10 +17,17 @@ body, html {
     background: #858b8e;
 }
 
-#map.region-focus-active .leaflet-tile-pane {
-    filter: blur(4px) brightness(0.7) saturate(0.75);
-    transform: scale(1.01);
-    transform-origin: center;
+.map-focus-blur-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 350;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(4px) brightness(0.7) saturate(0.75);
+    backdrop-filter: blur(4px) brightness(0.7) saturate(0.75);
+}
+
+.map-focus-blur-overlay[hidden] {
+    display: none;
 }
 
 #map .leaflet-overlay-pane path[fill-rule="evenodd"] {
@@ -53,7 +60,7 @@ body, html {
 }
 
 #map .leaflet-overlay-pane path.region-focus-foreground {
-    fill-opacity: 0.82 !important;
+    fill-opacity: 0.1 !important;
 }
 
 #map.region-focus-active .leaflet-overlay-pane path.region-focus-background {
@@ -131,13 +138,15 @@ body, html {
     vector-effect: non-scaling-stroke;
 }
 
-#map3d.region-focus-active .maplibregl-canvas {
-    filter: blur(4px) brightness(0.68) saturate(0.75);
+.maplibregl-map .map-focus-blur-overlay {
+    z-index: 1;
+    -webkit-backdrop-filter: blur(4px) brightness(0.68) saturate(0.75);
+    backdrop-filter: blur(4px) brightness(0.68) saturate(0.75);
 }
 
 .map3d-selection-fill-path {
     fill: var(--selected-region-fill-color, #3388ff);
-    fill-opacity: 0.84;
+    fill-opacity: 0.1;
     stroke: none;
 }
 

@@ -12,6 +12,8 @@ var map = L.map('map', {
     maxBounds: sulaymaniyahBounds,
     maxBoundsViscosity: 1.0
 });
+var mapFocusBlurOverlay = createMapFocusBlurOverlay(map.getContainer());
+var map3DFocusBlurOverlay = null;
 
 var streetMapLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -51,6 +53,7 @@ function syncLeafletBaseLayers() {
 
 syncLeafletBaseLayers();
 streetMapToggle.addEventListener('change', syncLeafletBaseLayers);
+map.on('move zoom resize', updateMapFocusBlurOverlay);
 
 var outsideMaskPane = map.createPane('outsideMapMask');
 outsideMaskPane.style.zIndex = 680;
@@ -591,6 +594,7 @@ function initialize3DMap() {
         maxBounds: [[44.0, 34.0], [47.0, 36.85]],
         attributionControl: true
     });
+    map3DFocusBlurOverlay = createMapFocusBlurOverlay(map3DContainer);
     map3D.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map3D.on('load', function () {
@@ -698,7 +702,10 @@ function initialize3DMap() {
 
         update3DRegionFilter();
         sync3DRegionLabels();
-        map3D.on('render', sync3DSelectionOutline);
+        map3D.on('render', function () {
+            sync3DSelectionOutline();
+            update3DFocusBlurOverlay();
+        });
     });
 }
 
@@ -937,6 +944,8 @@ function showSelectedRegion(regionName) {
     var isFocused = Boolean(regionName && selectedLayer);
     document.getElementById('map').classList.toggle('region-focus-active', isFocused);
     map3DContainer.classList.toggle('region-focus-active', isFocused);
+    updateMapFocusBlurOverlay();
+    update3DFocusBlurOverlay();
     drawnItems.eachLayer(function (layer) {
         if (layer.kind === 'named-point') return;
         var isForeground = isFocused && isRegionRelatedToSelection(layer, selectedLayer);
@@ -957,6 +966,96 @@ function showSelectedRegion(regionName) {
             layer.bringToFront();
         }
     });
+}
+
+function createMapFocusBlurOverlay(container) {
+    var overlay = document.createElement('div');
+    overlay.className = 'map-focus-blur-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.hidden = true;
+    container.appendChild(overlay);
+    return overlay;
+}
+
+function getFocusBlurMask(selectedLayer, projectPoint, width, height) {
+    var paths = [];
+    drawnItems.eachLayer(function (layer) {
+        if (layer.kind === 'named-point' ||
+            !isRegionRelatedToSelection(layer, selectedLayer)) return;
+
+        var geometry = layer.toGeoJSON().geometry;
+        var polygons = geometry.type === 'Polygon' ? [geometry.coordinates] :
+            geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+        var path = [];
+        polygons.forEach(function (rings) {
+            rings.forEach(function (ring) {
+                ring.forEach(function (coordinate, index) {
+                    var point = projectPoint(coordinate);
+                    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+                    path.push((index ? 'L' : 'M') + point.x + ' ' + point.y);
+                });
+                path.push('Z');
+            });
+        });
+        if (path.length) paths.push('<path d="' + path.join(' ') +
+            '" fill="black" fill-rule="evenodd"/>');
+    });
+
+    if (!paths.length) return '';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width +
+        '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height +
+        '"><mask id="focus-mask"><rect width="100%" height="100%" fill="white"/>' +
+        paths.join('') + '</mask><rect width="100%" height="100%" fill="white" ' +
+        'mask="url(#focus-mask)"/></svg>';
+}
+
+function setFocusBlurMask(overlay, svg) {
+    if (!svg) {
+        overlay.hidden = true;
+        overlay.style.removeProperty('mask-image');
+        overlay.style.removeProperty('-webkit-mask-image');
+        return;
+    }
+
+    var maskImage = 'url("data:image/svg+xml;charset=utf-8,' +
+        encodeURIComponent(svg) + '")';
+    overlay.style.maskImage = maskImage;
+    overlay.style.webkitMaskImage = maskImage;
+    overlay.style.maskSize = '100% 100%';
+    overlay.style.webkitMaskSize = '100% 100%';
+    overlay.style.maskRepeat = 'no-repeat';
+    overlay.style.webkitMaskRepeat = 'no-repeat';
+    overlay.hidden = false;
+}
+
+function updateMapFocusBlurOverlay() {
+    if (!mapFocusBlurOverlay) return;
+    var selectedLayer = getSelectedRegionLayer(regionFilter.value);
+    if (!selectedLayer) {
+        setFocusBlurMask(mapFocusBlurOverlay, '');
+        return;
+    }
+
+    var size = map.getSize();
+    var svg = getFocusBlurMask(selectedLayer, function (coordinate) {
+        return map.latLngToContainerPoint([coordinate[1], coordinate[0]]);
+    }, size.x, size.y);
+    setFocusBlurMask(mapFocusBlurOverlay, svg);
+}
+
+function update3DFocusBlurOverlay() {
+    if (!map3DFocusBlurOverlay || !map3D) return;
+    var selectedLayer = getSelectedRegionLayer(regionFilter.value);
+    if (!selectedLayer) {
+        setFocusBlurMask(map3DFocusBlurOverlay, '');
+        return;
+    }
+
+    var size = map3D.getContainer();
+    var svg = getFocusBlurMask(selectedLayer, function (coordinate) {
+        return map3D.project(coordinate);
+    }, size.clientWidth, size.clientHeight);
+    setFocusBlurMask(map3DFocusBlurOverlay, svg);
 }
 
 function focusRegionView(layer) {
@@ -2025,10 +2124,14 @@ map.on(L.Draw.Event.CREATED, function (e) {
 map.on(L.Draw.Event.EDITED, function () {
     saveRegions();
     sync3DRegions();
+    updateMapFocusBlurOverlay();
+    update3DFocusBlurOverlay();
 });
 map.on(L.Draw.Event.DELETED, function () {
     saveRegions();
     sync3DRegions();
+    updateMapFocusBlurOverlay();
+    update3DFocusBlurOverlay();
 });
 
 map.on('click', function (event) {
