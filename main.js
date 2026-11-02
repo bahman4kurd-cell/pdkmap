@@ -630,7 +630,7 @@ function initialize3DMap() {
                 'fill-extrusion-color': '#8ceeff',
                 'fill-extrusion-base': 0,
                 'fill-extrusion-height': 220,
-                'fill-extrusion-opacity': 0.92,
+                'fill-extrusion-opacity': 0.12,
                 'fill-extrusion-vertical-gradient': true
             }
         }, firstSymbolLayerId);
