@@ -614,7 +614,11 @@ function initialize3DMap() {
             source: 'committee-regions',
             paint: {
                 'fill-color': ['coalesce', ['get', 'fillColor'], '#3388ff'],
-                'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.3],
+                'fill-opacity': [
+                    'min',
+                    0.14,
+                    ['coalesce', ['get', 'fillOpacity'], 0.3]
+                ],
                 'fill-outline-color': '#8ceeff'
             }
         }, firstSymbolLayerId);
@@ -638,7 +642,7 @@ function initialize3DMap() {
                 'fill-extrusion-color': ['coalesce', ['get', 'fillColor'], '#3388ff'],
                 'fill-extrusion-base': 185,
                 'fill-extrusion-height': 220,
-                'fill-extrusion-opacity': 0.82,
+                'fill-extrusion-opacity': 0.12,
                 'fill-extrusion-vertical-gradient': true
             }
         }, firstSymbolLayerId);
