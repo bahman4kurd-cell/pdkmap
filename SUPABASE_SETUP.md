@@ -1,10 +1,10 @@
 # Supabase setup
 
-The map has 25 isolated branches. Each branch has its own region-name list and GeoJSON boundaries. The main administrator can see and edit every branch, rename branches, and create or reset one login account per branch. A branch account can only read and edit its assigned branch.
+The map supports a growing number of isolated branches. Each branch has its own region-name list and GeoJSON boundaries. The main administrator can create branches, draw and edit their regions, rename branches, and create or reset one read-only login account per branch. A branch account can only view its assigned branch.
 
 ## Initial setup or upgrade
 
-1. In Supabase SQL Editor, run `supabase-schema.sql`. The migration creates branches 1–25, branch memberships, per-branch map storage, row-level security policies, and Realtime publication. Existing shared map data is copied to branch 4; the old shared table is then made inaccessible to browser users. The migration keeps that old row intact as a backup.
+1. In Supabase SQL Editor, run `supabase-schema.sql`. The migration creates initial branches 1–25, branch memberships, per-branch map storage, admin-only write policies, and Realtime publication. Existing shared map data is copied to branch 4; the old shared table is then made inaccessible to browser users. The migration keeps that old row intact as a backup.
 2. Create the main administrator account under Authentication > Users. Public sign-up should remain disabled. Add that account to `map_admins`:
 
    ```sql
@@ -26,14 +26,14 @@ The map has 25 isolated branches. Each branch has its own region-name list and G
 5. In Authentication > URL Configuration, set the deployed site's URL and add local development URLs to the redirect allow list.
 6. Deploy `index.html`, `main.js`, `style.css`, `supabase-config.js`, and the `supabase/` function/config files to the appropriate hosts. The function itself must be deployed to Supabase, not served as a static file by Render.
 
-For an existing deployment, run the updated SQL migration once, deploy the Edge Function, and redeploy the site. The initial `branch-04` import uses `ON CONFLICT DO NOTHING`, so re-running the migration will not overwrite branch data.
+For an existing deployment, run the updated SQL migration once, deploy the Edge Function, and redeploy the site. The initial `branch-04` import uses `ON CONFLICT DO NOTHING`, so re-running the migration will not overwrite branch data. The migration removes the former 25-branch limit and replaces branch-editor write policies with main-admin-only write policies.
 
 ## Create branch logins and draw region boundaries
 
-1. Sign in with the main administrator account. Select one of the 25 branches; the initial names are `لق ١` through `لق ٢٥` and can be renamed in the branch panel.
-2. In the branch panel, save a unique email and a password of at least 10 characters. Repeating this action for that branch resets its existing credentials. Share the login details privately with that branch's operator.
-3. Add each region name to the region combo, select the name, and draw its polygon. Names and boundaries are saved only in the selected branch. Existing map data is assigned to branch 4.
-4. Give each branch operator only that branch's credentials. They can draw and edit their branch's regions, but cannot select or query other branches. The main administrator retains access to all 25 branches.
+1. Sign in with the main administrator account. Open **بەڕێوەبردنی لقەکان** and create a branch with its own name. The initial branches `لق ١` through `لق ٢٥` are available and can be renamed there; new branches can be added whenever needed.
+2. Select the branch in the management panel, enter a unique email and a password of at least 10 characters, and create its viewer account. The selected branch is shown in the confirmation. Repeating this action for that branch resets its existing credentials. Share the login details privately.
+3. Select the branch in the map selector. Add region names and draw their polygons using the map tools. Names and boundaries are saved only in the selected branch. The map opens to the whole of Iraq; switching the branch loads only that branch's map. Existing map data is assigned to branch 4.
+4. A branch account can only view its assigned branch; only the main administrator can draw or edit branch boundaries and regions. Row-level security enforces this restriction in the database, not just in the interface.
 
 Branch accounts are created as confirmed Supabase Auth users by the Edge Function. It verifies the caller's session and main-admin role before using the server-only service key. Email/password values are sent over HTTPS and are not stored in the app or map database.
 

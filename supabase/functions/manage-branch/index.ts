@@ -63,8 +63,23 @@ Deno.serve(async (request: Request) => {
     const payload = await request.json();
     const action = typeof payload.action === "string" ? payload.action : "";
     const branchId = typeof payload.branchId === "string" ? payload.branchId : "";
-    if (!/^branch-(0[1-9]|1[0-9]|2[0-5])$/.test(branchId)) {
-      return response(request, 400, { error: "Choose one of the 25 configured branches." });
+    if (action === "create-branch") {
+      const name = typeof payload.name === "string" ? payload.name.trim() : "";
+      if (!name || name.length > 80) {
+        return response(request, 400, { error: "Branch names must contain 1 to 80 characters." });
+      }
+
+      const { data, error } = await callerClient.rpc("create_map_branch", {
+        branch_name: name,
+      });
+      if (error) throw error;
+      const branch = Array.isArray(data) ? data[0] : data;
+      if (!branch) throw new Error("Supabase did not return the newly created branch.");
+      return response(request, 200, { branch });
+    }
+
+    if (!/^branch-[a-z0-9-]{1,60}$/.test(branchId)) {
+      return response(request, 400, { error: "Choose a valid configured branch." });
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {

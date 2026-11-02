@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=branch-scoped-maps-20261102" />
+    <link rel="stylesheet" href="style.css?v=branches-iraq-viewer-20261102" />
 </head>
 <body>
 
@@ -35,23 +35,13 @@
             <span id="accessStatus" role="status" aria-live="polite">چوونەژوورەوە پێویستە</span>
             <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
             <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
+            <button type="button" id="openBranchManagementButton" hidden>بەڕێوەبردنی لقەکان</button>
         </div>
-        <label for="branchFilter">لق</label>
+        <label for="branchFilter">لقی ماپ</label>
         <select id="branchFilter" disabled>
             <option value="">چاوەڕێی چوونەژوورەوە...</option>
         </select>
-        <section id="branchAdminTools" class="branch-admin-tools" hidden>
-            <h4>بەڕێوەبردنی لق</h4>
-            <label for="branchNameInput">ناوی لق</label>
-            <input type="text" id="branchNameInput" maxlength="80" autocomplete="off">
-            <button type="button" id="saveBranchNameButton">خەزنکردنی ناوی لق</button>
-            <label for="branchAccountEmail">ئیمەیڵی هەژماری لق</label>
-            <input type="email" id="branchAccountEmail" autocomplete="off">
-            <label for="branchAccountPassword">وشەی نهێنی (کەمترین ١٠ پیت)</label>
-            <input type="password" id="branchAccountPassword" minlength="10" autocomplete="new-password">
-            <button type="button" id="saveBranchAccountButton">دروستکردن / نوێکردنەوەی هەژمار</button>
-            <span id="branchAdminStatus" role="status" aria-live="polite"></span>
-        </section>
+        <p id="branchViewNotice" class="branch-view-notice" hidden>تەنها لقەکەی خۆت دەبینیت؛ مۆڵەتی دەستکاریکردنت نییە.</p>
         <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
@@ -100,6 +90,36 @@
         <span id="storageStatus" role="status" aria-live="polite">خەریکی پەیوەندی بە داتابەیس...</span>
         <p class="creator-credit creator-credit-panel">دروستکردنی: بەهمەن دەروێش علی / یەکەی ئایتی</p>
     </div>
+
+    <dialog id="branchManagementDialog" class="branch-management-dialog" aria-labelledby="branchManagementTitle">
+        <section class="branch-management-panel">
+            <div class="branch-management-heading">
+                <h2 id="branchManagementTitle">بەڕێوەبردنی لقەکان</h2>
+                <button type="button" id="closeBranchManagementButton" aria-label="داخستن">×</button>
+            </div>
+            <p>لقی نوێ زیاد بکە یان ناو و هەژماری لقێکی هەڵبژێردراو بەڕێوەببە. هەژماری لق تەنها مۆڵەتی بینینی نەخشەی لقی خۆی هەیە.</p>
+            <section class="branch-management-section">
+                <h3>دروستکردنی لقی نوێ</h3>
+                <label for="newBranchName">ناوی لق</label>
+                <input type="text" id="newBranchName" maxlength="80" autocomplete="off">
+                <button type="button" id="createBranchButton">دروستکردنی لق</button>
+            </section>
+            <section class="branch-management-section">
+                <h3>بەڕێوەبردنی لق و هەژمار</h3>
+                <label for="branchManagementSelect">لقی بەڕێوەبردن / مۆڵەتی بینین</label>
+                <select id="branchManagementSelect"></select>
+                <label for="branchNameInput">ناوی لق</label>
+                <input type="text" id="branchNameInput" maxlength="80" autocomplete="off">
+                <button type="button" id="saveBranchNameButton">خەزنکردنی ناوی لق</button>
+                <label for="branchAccountEmail">ئیمەیڵی هەژماری بینەر</label>
+                <input type="email" id="branchAccountEmail" autocomplete="off">
+                <label for="branchAccountPassword">وشەی نهێنی (کەمترین ١٠ پیت)</label>
+                <input type="password" id="branchAccountPassword" minlength="10" autocomplete="new-password">
+                <button type="button" id="saveBranchAccountButton">دروستکردن / نوێکردنەوەی هەژماری بینەر</button>
+            </section>
+            <span id="branchAdminStatus" role="status" aria-live="polite"></span>
+        </section>
+    </dialog>
 
     <div id="map"></div>
     <div id="map3d" hidden></div>
@@ -156,6 +176,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=branch-scoped-maps-20261102"></script>
+    <script src="main.js?v=branches-iraq-viewer-20261102"></script>
 </body>
 </html>

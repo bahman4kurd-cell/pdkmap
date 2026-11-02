@@ -90,9 +90,14 @@ $$;
 create table if not exists public.map_branches (
     id text primary key,
     name text not null,
-    sort_order integer not null unique check (sort_order between 1 and 25),
+    sort_order integer not null unique check (sort_order > 0),
     created_at timestamptz not null default now()
 );
+
+alter table public.map_branches
+    drop constraint if exists map_branches_sort_order_check;
+alter table public.map_branches
+    add constraint map_branches_sort_order_check check (sort_order > 0);
 
 create table if not exists public.map_branch_users (
     user_id uuid primary key references auth.users(id) on delete cascade,
@@ -163,6 +168,50 @@ $$;
 revoke all on function public.get_my_map_branch_id() from public;
 grant execute on function public.get_my_map_branch_id() to authenticated;
 
+create or replace function public.create_map_branch(branch_name text)
+returns table (id text, name text, sort_order integer)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+    normalized_name text := btrim(branch_name);
+    new_branch_id text := 'branch-' || gen_random_uuid()::text;
+    next_order integer;
+begin
+    if not public.is_map_admin() then
+        raise exception 'Only the main map administrator can create branches.'
+            using errcode = '42501';
+    end if;
+
+    if normalized_name is null or normalized_name = '' or char_length(normalized_name) > 80 then
+        raise exception 'Branch names must contain 1 to 80 characters.'
+            using errcode = '22023';
+    end if;
+
+    perform pg_advisory_xact_lock(hashtextextended('public.map_branches.sort_order', 0));
+
+    select coalesce(max(branch.sort_order), 0) + 1
+    into next_order
+    from public.map_branches as branch;
+
+    insert into public.map_branches as inserted_branch (id, name, sort_order)
+    values (new_branch_id, normalized_name, next_order)
+    returning inserted_branch.id into new_branch_id;
+
+    insert into public.map_branch_state (branch_id)
+    values (new_branch_id);
+
+    return query
+    select branch.id, branch.name, branch.sort_order
+    from public.map_branches as branch
+    where branch.id = new_branch_id;
+end;
+$$;
+
+revoke all on function public.create_map_branch(text) from public;
+grant execute on function public.create_map_branch(text) to authenticated;
+
 drop policy if exists "Authenticated users can read map branches" on public.map_branches;
 create policy "Authenticated users can read map branches"
     on public.map_branches
@@ -193,32 +242,35 @@ create policy "Users can read accessible branch map data"
     using (public.can_access_map_branch(branch_id));
 
 drop policy if exists "Branch editors can create branch map data" on public.map_branch_state;
-create policy "Branch editors can create branch map data"
+drop policy if exists "Admins can create branch map data" on public.map_branch_state;
+create policy "Admins can create branch map data"
     on public.map_branch_state
     for insert
     to authenticated
     with check (
-        public.can_access_map_branch(branch_id)
+        public.is_map_admin()
         and updated_by = auth.uid()
     );
 
 drop policy if exists "Branch editors can update branch map data" on public.map_branch_state;
-create policy "Branch editors can update branch map data"
+drop policy if exists "Admins can update branch map data" on public.map_branch_state;
+create policy "Admins can update branch map data"
     on public.map_branch_state
     for update
     to authenticated
-    using (public.can_access_map_branch(branch_id))
+    using (public.is_map_admin())
     with check (
-        public.can_access_map_branch(branch_id)
+        public.is_map_admin()
         and updated_by = auth.uid()
     );
 
 drop policy if exists "Branch editors can delete branch map data" on public.map_branch_state;
-create policy "Branch editors can delete branch map data"
+drop policy if exists "Admins can delete branch map data" on public.map_branch_state;
+create policy "Admins can delete branch map data"
     on public.map_branch_state
     for delete
     to authenticated
-    using (public.can_access_map_branch(branch_id));
+    using (public.is_map_admin());
 
 insert into public.map_branch_state (branch_id, data, updated_at, updated_by)
 select 'branch-04', data, updated_at, updated_by
