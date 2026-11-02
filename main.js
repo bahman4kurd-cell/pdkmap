@@ -91,6 +91,16 @@ var adminLoginError = document.getElementById('adminLoginError');
 var adminPasswordLabel = document.getElementById('adminPasswordLabel');
 var gateLoginButton = document.getElementById('gateLoginButton');
 var mapAccessTitle = document.getElementById('mapAccessTitle');
+var branchFilter = document.getElementById('branchFilter');
+var branchAdminTools = document.getElementById('branchAdminTools');
+var branchNameInput = document.getElementById('branchNameInput');
+var saveBranchNameButton = document.getElementById('saveBranchNameButton');
+var branchAccountEmailInput = document.getElementById('branchAccountEmail');
+var branchAccountPasswordInput = document.getElementById('branchAccountPassword');
+var saveBranchAccountButton = document.getElementById('saveBranchAccountButton');
+var branchAdminStatus = document.getElementById('branchAdminStatus');
+var newRegionNameInput = document.getElementById('newRegionName');
+var addRegionNameButton = document.getElementById('addRegionNameButton');
 var passwordRecoveryPending = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 var loginSubmissionPending = false;
 var locationResult = document.getElementById('locationResult');
@@ -157,7 +167,12 @@ var isSupabaseProjectUrl = (function (value) {
 var supabaseClient = isSupabaseProjectUrl && supabaseAnonKey && window.supabase ?
     window.supabase.createClient(supabaseUrl, supabaseAnonKey) : null;
 var isMapAdmin = false;
+var isGlobalMapAdmin = false;
 var currentAuthUser = null;
+var selectedBranchId = null;
+var availableBranches = [];
+var branchLoadToken = 0;
+var branchRegionNames = [];
 var legacyLocalFeatureCollection = null;
 var cloudSaveQueue = Promise.resolve();
 var cloudRealtimeChannel = null;
@@ -171,7 +186,7 @@ maplibregl.setRTLTextPlugin(
 });
 
 function normalizeRegionName(regionName) {
-    var trimmedName = (regionName || '').trim();
+    var trimmedName = typeof regionName === 'string' ? regionName.trim() : '';
     trimmedName = trimmedName.replace(/ناوجەی سێ/g, 'ناوچەی سێ');
     if (trimmedName.startsWith('لیکنەی ')) {
         trimmedName = trimmedName.replace(/^لیکنە/, 'لیژنە');
@@ -197,13 +212,6 @@ var committeeRegions = [
     { areaName: 'ناوچەی ماوەت', name: 'لیژنەی ناوچەی ماوەت' },
     { areaName: 'ناوچەی شارباژێر', name: 'لیژنەی ناوچەی شارباژێر' }
 ];
-
-committeeRegions.forEach(function (region) {
-    var option = document.createElement('option');
-    option.value = region.name;
-    option.textContent = region.name;
-    regionFilter.add(option);
-});
 
 function normalizeNamedPointColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color || '') ? color : defaultNamedPointColor;
@@ -258,7 +266,11 @@ function getRegionFeatureCollection() {
         features.push(feature);
     });
 
-    return { type: 'FeatureCollection', features: features };
+    return {
+        type: 'FeatureCollection',
+        features: features,
+        regionNames: branchRegionNames.slice()
+    };
 }
 
 function createRegionId() {
@@ -776,6 +788,21 @@ function addRegionFilterOption(regionName) {
     }
 }
 
+function addBranchRegionName(regionName) {
+    var canonicalName = normalizeRegionName(regionName);
+    if (!canonicalName || branchRegionNames.includes(canonicalName)) return false;
+    branchRegionNames.push(canonicalName);
+    addRegionFilterOption(canonicalName);
+    return true;
+}
+
+function resetRegionFilterOptions() {
+    Array.from(regionFilter.options).forEach(function (option, index) {
+        if (index > 0) option.remove();
+    });
+    regionFilter.value = '';
+}
+
 function createRegionInfoQuery(layer) {
     var feature = turf.simplify(layer.toGeoJSON(), {
         tolerance: 0.00005,
@@ -1175,9 +1202,7 @@ function finishDeleteSelectedRegion() {
     }
 
     Array.from(regionFilter.options).forEach(function (option) {
-        if (!option.value || committeeRegions.some(function (region) {
-            return region.name === option.value;
-        })) return;
+        if (!option.value) return;
         var stillExists = drawnItems.getLayers().some(function (layer) {
             return layer.kind !== 'named-point' && getRegionFilterName(layer) === option.value;
         });
@@ -1294,7 +1319,13 @@ function loadFeatureCollection(savedRegions) {
     drawnItems.clearLayers();
     selectedRegionLayer = null;
     setSelectedLabelLayer(null);
-    regionFilter.value = '';
+    resetRegionFilterOptions();
+    branchRegionNames = [];
+    if (savedRegions && Array.isArray(savedRegions.regionNames)) {
+        savedRegions.regionNames.forEach(function (name) {
+            addBranchRegionName(name);
+        });
+    }
     var regionNameChanged = false;
 
     if (savedRegions && Array.isArray(savedRegions.features)) {
@@ -1340,6 +1371,7 @@ function loadFeatureCollection(savedRegions) {
                 layer.filterName = normalizeRegionName(properties.filterName || properties.name);
                 if (layer.regionName !== (properties.name || '')) regionNameChanged = true;
                 layer.regionStyle = regionStyle;
+                if (addBranchRegionName(layer.regionName)) regionNameChanged = true;
                 addRegionFilterOption(layer.regionName);
                 enableRegionSelection(layer);
                 addRegionLabel(layer);
@@ -1413,6 +1445,8 @@ function setMapEditorPermissions(canEdit) {
     fillColorInput.disabled = !isMapAdmin;
     fillOpacityInput.disabled = !isMapAdmin;
     addNamedPointButton.disabled = !isMapAdmin;
+    newRegionNameInput.disabled = !isMapAdmin;
+    addRegionNameButton.disabled = !isMapAdmin;
     applyRegionStyleButton.disabled = !isMapAdmin || !selectedRegionLayer;
     updateSubRegionButton();
     editNamedLabelButton.disabled = !isMapAdmin || !selectedLabelLayer;
@@ -1436,8 +1470,9 @@ function setMapEditorPermissions(canEdit) {
 }
 
 function writeCloudFeatureCollection(collection) {
-    if (!supabaseClient || !isMapAdmin || !currentAuthUser) {
-        storageStatus.textContent = 'تەنها ئەدمین دەتوانێت داتاکان خەزن بکات.';
+    var branchId = selectedBranchId;
+    if (!supabaseClient || !isMapAdmin || !currentAuthUser || !branchId) {
+        storageStatus.textContent = 'هەژماری دەستکاریکەر و لقێکی هەڵبژێردراو پێویستە بۆ خەزنکردن.';
         return Promise.resolve(false);
     }
 
@@ -1445,14 +1480,16 @@ function writeCloudFeatureCollection(collection) {
         var updatedAt = new Date().toISOString();
         localCloudUpdateTimes.add(Date.parse(updatedAt));
         try {
-            var result = await supabaseClient.from('map_state').upsert({
-                id: 'sulaymaniyah',
+            var result = await supabaseClient.from('map_branch_state').upsert({
+                branch_id: branchId,
                 data: collection,
                 updated_at: updatedAt,
                 updated_by: currentAuthUser.id
+            }, {
+                onConflict: 'branch_id'
             });
             if (result.error) throw result.error;
-            storageStatus.textContent = 'هەموو داتاکان بۆ cloud خەزن کران';
+            storageStatus.textContent = 'سنوورەکانی ئەم لقە بۆ cloud خەزن کران';
             return true;
         } finally {
             window.setTimeout(function () {
@@ -1471,20 +1508,23 @@ function saveRegions() {
     return writeCloudFeatureCollection(getRegionFeatureCollection());
 }
 
-async function loadCloudMap() {
-    if (!supabaseClient || !currentAuthUser) return;
+async function loadCloudMap(branchId, loadToken) {
+    branchId = branchId || selectedBranchId;
+    if (!supabaseClient || !currentAuthUser || !branchId) return false;
 
-    var result = await supabaseClient.from('map_state')
+    var result = await supabaseClient.from('map_branch_state')
         .select('data, updated_at')
-        .eq('id', 'sulaymaniyah')
+        .eq('branch_id', branchId)
         .maybeSingle();
 
     if (result.error) {
-        console.error('نەتوانرا داتای هاوبەشی ماپ بخوێندرێتەوە:', result.error);
+        console.error('نەتوانرا داتای نەخشەی لق بخوێندرێتەوە:', result.error);
         accessStatus.textContent = 'خوێندنەوەی داتای هاوبەش سەرکەوتوو نەبوو.';
-        mapAccessMessage.textContent = 'داتای هاوبەش بار نەبوو؛ پەیوەندی و RLS بپشکنە.';
-        return;
+        mapAccessMessage.textContent = 'داتای ئەم لقە بار نەبوو؛ پەیوەندی و RLS بپشکنە.';
+        return false;
     }
+    if (loadToken !== undefined &&
+        (loadToken !== branchLoadToken || branchId !== selectedBranchId)) return false;
 
     var cloudCollection = result.data && result.data.data || {
         type: 'FeatureCollection',
@@ -1492,40 +1532,121 @@ async function loadCloudMap() {
     };
     var namesChanged = loadFeatureCollection(cloudCollection);
     var hasCloudFeatures = cloudCollection.features && cloudCollection.features.length > 0;
-    if (isMapAdmin && !hasCloudFeatures) {
+    var hasCloudData = hasCloudFeatures ||
+        (Array.isArray(cloudCollection.regionNames) && cloudCollection.regionNames.length > 0);
+    legacyLocalFeatureCollection = null;
+    if (isGlobalMapAdmin && branchId === 'branch-04' && !hasCloudData) {
         legacyLocalFeatureCollection = await readLegacyLocalFeatureCollection();
     }
+    if (loadToken !== undefined &&
+        (loadToken !== branchLoadToken || branchId !== selectedBranchId)) return false;
     var hasLegacyFeatures = legacyLocalFeatureCollection &&
         legacyLocalFeatureCollection.features && legacyLocalFeatureCollection.features.length > 0;
 
-    migrateLocalDataButton.hidden = !(isMapAdmin && !hasCloudFeatures && hasLegacyFeatures);
+    migrateLocalDataButton.hidden = !(
+        isGlobalMapAdmin && branchId === 'branch-04' && !hasCloudData && hasLegacyFeatures
+    );
     setMapEditorPermissions(isMapAdmin);
     mapAccessGate.hidden = true;
     map.invalidateSize();
     if (map3D) map3D.resize();
 
     if (isMapAdmin) {
-        accessStatus.textContent = 'ئەدمین: دەستکاری چالاکە';
-        storageStatus.textContent = hasCloudFeatures ? 'داتای cloud بارکرا' : 'ماپی هاوبەش ئامادەیە';
-        if (namesChanged && hasCloudFeatures) await saveRegions();
+        accessStatus.textContent = isGlobalMapAdmin ?
+            'ئەدمینی سەرەکی: دەستکاریکردنی هەموو لقەکان چالاکە' :
+            'ئەدمینی لق: دەستکاریکردنی ئەم لقە چالاکە';
+        storageStatus.textContent = hasCloudFeatures ?
+            'داتای cloud ی ئەم لقە بارکرا' : 'نەخشەی ئەم لقە ئامادەیە';
+        if (namesChanged && hasCloudData) await saveRegions();
     } else {
         accessStatus.textContent = 'بینەر: تەنها بینین';
-        storageStatus.textContent = 'داتای cloud بارکرا';
+        storageStatus.textContent = 'داتای cloud ی ئەم لقە بارکرا';
     }
+    return true;
 }
 
-function subscribeToCloudMap() {
-    if (!supabaseClient || !currentAuthUser || cloudRealtimeChannel) return;
+async function loadBranchOptions(assignedBranchId) {
+    var result = await supabaseClient.from('map_branches')
+        .select('id, name, sort_order')
+        .order('sort_order');
+    if (result.error) throw result.error;
 
-    cloudRealtimeChannel = supabaseClient.channel('map-state-sulaymaniyah')
+    availableBranches = result.data || [];
+    branchFilter.replaceChildren();
+    availableBranches.forEach(function (branch) {
+        var option = document.createElement('option');
+        option.value = branch.id;
+        option.textContent = branch.name;
+        branchFilter.add(option);
+    });
+
+    var targetBranchId = isGlobalMapAdmin ?
+        (availableBranches.some(function (branch) { return branch.id === selectedBranchId; }) ?
+            selectedBranchId :
+            (availableBranches.some(function (branch) { return branch.id === 'branch-04'; }) ?
+                'branch-04' : availableBranches[0] && availableBranches[0].id)) :
+        assignedBranchId;
+    if (!targetBranchId || !availableBranches.some(function (branch) {
+        return branch.id === targetBranchId;
+    })) {
+        branchFilter.disabled = true;
+        branchAdminTools.hidden = true;
+        mapAccessGate.hidden = false;
+        mapAccessMessage.textContent =
+            'ئەم هەژمارە بە هیچ لقێکەوە نەبەستراوە؛ داوا لە ئەدمینی سەرەکی بکە هەژمارەکەت بە لقێکەوە ببەستێتەوە.';
+        accessStatus.textContent = 'هەژماری لق پێویستی بە پەیوەستکردن هەیە';
+        return false;
+    }
+
+    branchFilter.value = targetBranchId;
+    branchFilter.disabled = !isGlobalMapAdmin;
+    branchAdminTools.hidden = !isGlobalMapAdmin;
+    updateBranchAdminControls();
+    await switchMapBranch(targetBranchId);
+    return true;
+}
+
+function updateBranchAdminControls() {
+    var branch = availableBranches.find(function (item) {
+        return item.id === selectedBranchId;
+    });
+    branchNameInput.value = branch ? branch.name : '';
+    branchNameInput.disabled = !isGlobalMapAdmin || !branch;
+    saveBranchNameButton.disabled = !isGlobalMapAdmin || !branch;
+    branchAccountEmailInput.disabled = !isGlobalMapAdmin || !branch;
+    branchAccountPasswordInput.disabled = !isGlobalMapAdmin || !branch;
+    saveBranchAccountButton.disabled = !isGlobalMapAdmin || !branch;
+}
+
+async function switchMapBranch(branchId) {
+    if (!availableBranches.some(function (branch) { return branch.id === branchId; })) return;
+
+    selectedBranchId = branchId;
+    branchFilter.value = branchId;
+    branchAccountEmailInput.value = '';
+    branchAccountPasswordInput.value = '';
+    branchAdminStatus.textContent = '';
+    updateBranchAdminControls();
+    unsubscribeFromCloudMap();
+    var loadToken = ++branchLoadToken;
+    loadFeatureCollection({ type: 'FeatureCollection', features: [] });
+    migrateLocalDataButton.hidden = true;
+    var loaded = await loadCloudMap(branchId, loadToken);
+    if (loaded && loadToken === branchLoadToken) subscribeToCloudMap(branchId);
+}
+
+function subscribeToCloudMap(branchId) {
+    if (!supabaseClient || !currentAuthUser || cloudRealtimeChannel || !branchId) return;
+
+    cloudRealtimeChannel = supabaseClient.channel('map-branch-' + branchId)
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
-            table: 'map_state',
-            filter: 'id=eq.sulaymaniyah'
+            table: 'map_branch_state',
+            filter: 'branch_id=eq.' + branchId
         }, function (payload) {
             var record = payload.new;
-            if (!record || record.id !== 'sulaymaniyah') return;
+            if (!record || record.branch_id !== selectedBranchId) return;
 
             var updatedAt = Date.parse(record.updated_at);
             if (record.updated_by === currentAuthUser.id &&
@@ -1540,7 +1661,7 @@ function subscribeToCloudMap() {
         })
         .subscribe(function (status, error) {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.error('پەیوەندی نوێکردنەوەی لایڤی ماپ سەرکەوتوو نەبوو:', error);
+                console.error('پەیوەندی نوێکردنەوەی لایڤی لق سەرکەوتوو نەبوو:', error);
                 storageStatus.textContent = 'نوێکردنەوەی لایڤ چالاک نییە؛ ڕێکخستنی Realtime بپشکنە.';
             }
         });
@@ -1573,22 +1694,36 @@ async function readLegacyLocalFeatureCollection() {
 
 async function applyAuthenticatedSession(session) {
     currentAuthUser = session && session.user || null;
-    var canEdit = false;
+    isGlobalMapAdmin = false;
+    var assignedBranchId = null;
 
     if (currentAuthUser) {
         var roleResult = await supabaseClient.rpc('is_map_admin');
         if (roleResult.error) {
-            console.error('نەتوانرا ڕۆڵی ئەدمین بپشکنرێت:', roleResult.error);
-        } else {
-            canEdit = roleResult.data === true;
+            throw roleResult.error;
         }
+        isGlobalMapAdmin = roleResult.data === true;
+        var branchResult = await supabaseClient.rpc('get_my_map_branch_id');
+        if (branchResult.error) throw branchResult.error;
+        assignedBranchId = branchResult.data || null;
     }
 
-    setMapEditorPermissions(canEdit);
+    setMapEditorPermissions(isGlobalMapAdmin || Boolean(assignedBranchId));
     adminLogoutButton.hidden = !currentAuthUser;
 
     if (!currentAuthUser) {
         unsubscribeFromCloudMap();
+        branchLoadToken += 1;
+        selectedBranchId = null;
+        availableBranches = [];
+        branchFilter.replaceChildren();
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'چوونەژوورەوە بکە';
+        branchFilter.add(placeholder);
+        branchFilter.disabled = true;
+        branchAdminTools.hidden = true;
+        branchAdminStatus.textContent = '';
         migrateLocalDataButton.hidden = true;
         legacyLocalFeatureCollection = null;
         loadFeatureCollection({ type: 'FeatureCollection', features: [] });
@@ -1599,10 +1734,13 @@ async function applyAuthenticatedSession(session) {
         return;
     }
 
-    mapAccessGate.hidden = true;
-    accessStatus.textContent = canEdit ? 'ئەدمین: دەستکاری چالاکە' : 'بینەر: تەنها بینین';
-    await loadCloudMap();
-    subscribeToCloudMap();
+    if (!isGlobalMapAdmin && !assignedBranchId) {
+        await loadBranchOptions(null);
+        setMapEditorPermissions(false);
+        return;
+    }
+
+    await loadBranchOptions(assignedBranchId);
 }
 
 function showPasswordRecoveryForm(session) {
@@ -1670,7 +1808,12 @@ async function initializeOnlineAccess() {
             return;
         }
         window.setTimeout(function () {
-            applyAuthenticatedSession(session);
+            applyAuthenticatedSession(session).catch(function (error) {
+                console.error('Authenticated session could not be applied:', error);
+                accessStatus.textContent = 'نەتوانرا ڕۆڵ و لقەکەی هەژمارەکەت بخوێندرێتەوە.';
+                mapAccessMessage.textContent =
+                    'پشکنینی مۆڵەت سەرکەوتوو نەبوو؛ ڕێکخستنی Supabase و SQL بپشکنە.';
+            });
         }, 0);
     });
 
@@ -1699,6 +1842,87 @@ async function migrateLegacyMapToCloud() {
         await loadCloudMap();
     }
 }
+
+async function manageBranch(action, payload) {
+    if (!isGlobalMapAdmin || !supabaseClient || !selectedBranchId) {
+        throw new Error('تەنها ئەدمینی سەرەکی دەتوانێت لق بەڕێوەببات.');
+    }
+
+    var result = await supabaseClient.functions.invoke('manage-branch', {
+        body: Object.assign({ action: action, branchId: selectedBranchId }, payload)
+    });
+    if (result.error) {
+        var errorMessage = result.error.message;
+        if (result.error.context && typeof result.error.context.json === 'function') {
+            try {
+                var responseBody = await result.error.context.json();
+                if (responseBody && responseBody.error) errorMessage = responseBody.error;
+            } catch (parseError) {
+                console.error('Branch-management error response could not be decoded:', parseError);
+            }
+        }
+        throw new Error(errorMessage);
+    }
+    if (result.data && result.data.error) throw new Error(result.data.error);
+    return result.data;
+}
+
+branchFilter.addEventListener('change', function () {
+    if (!isGlobalMapAdmin || !branchFilter.value) return;
+    branchAdminStatus.textContent = '';
+    switchMapBranch(branchFilter.value).catch(function (error) {
+        console.error('نەتوانرا نەخشەی لق بگۆڕدرێت:', error);
+        branchAdminStatus.textContent = 'نەتوانرا داتای لق باربکرێت؛ پەیوەندی و مۆڵەتەکان بپشکنە.';
+    });
+});
+
+saveBranchNameButton.addEventListener('click', async function () {
+    saveBranchNameButton.disabled = true;
+    branchAdminStatus.textContent = 'ناوی لق خەزن دەکرێت...';
+    try {
+        var result = await manageBranch('rename-branch', { name: branchNameInput.value });
+        var branch = availableBranches.find(function (item) {
+            return item.id === result.branch.id;
+        });
+        if (branch) branch.name = result.branch.name;
+        var option = Array.from(branchFilter.options).find(function (item) {
+            return item.value === selectedBranchId;
+        });
+        if (option) option.textContent = result.branch.name;
+        updateBranchAdminControls();
+        branchAdminStatus.textContent = 'ناوی لق خەزن کرا.';
+    } catch (error) {
+        console.error('نەتوانرا ناوی لق خەزن بکرێت:', error);
+        branchAdminStatus.textContent = 'گۆڕینی ناوی لق سەرکەوتوو نەبوو: ' +
+            String(error && error.message || error);
+    } finally {
+        saveBranchNameButton.disabled = !isGlobalMapAdmin || !selectedBranchId;
+    }
+});
+
+saveBranchAccountButton.addEventListener('click', async function () {
+    var email = branchAccountEmailInput.value.trim();
+    var password = branchAccountPasswordInput.value;
+    if (!email || password.length < 10) {
+        branchAdminStatus.textContent = 'ئیمەیڵ بنووسە و وشەی نهێنییەکی لانیکەم ١٠ پیتی دابنێ.';
+        return;
+    }
+
+    saveBranchAccountButton.disabled = true;
+    branchAdminStatus.textContent = 'هەژماری لق بە شێوەی پارێزراو دروست/نوێ دەکرێتەوە...';
+    try {
+        await manageBranch('set-branch-account', { email: email, password: password });
+        branchAccountPasswordInput.value = '';
+        branchAdminStatus.textContent =
+            'هەژماری ئەم لقە ئامادەیە. ئیمەیڵ و وشەی نهێنی بە ڕێگایەکی تایبەتی بدە بە بەڕێوەبەری لق.';
+    } catch (error) {
+        console.error('نەتوانرا هەژماری لق دروست بکرێت:', error);
+        branchAdminStatus.textContent = 'دروستکردنی هەژمار سەرکەوتوو نەبوو: ' +
+            String(error && error.message || error);
+    } finally {
+        saveBranchAccountButton.disabled = !isGlobalMapAdmin || !selectedBranchId;
+    }
+});
 
 adminLoginForm.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -1780,6 +2004,26 @@ adminLogoutButton.addEventListener('click', async function () {
 });
 
 migrateLocalDataButton.addEventListener('click', migrateLegacyMapToCloud);
+
+addRegionNameButton.addEventListener('click', function () {
+    if (!isMapAdmin) return;
+    var name = normalizeRegionName(newRegionNameInput.value);
+    if (!name) {
+        newRegionNameInput.focus();
+        return;
+    }
+
+    var added = addBranchRegionName(name);
+    regionFilter.value = name;
+    newRegionNameInput.value = '';
+    showSelectedRegion(name);
+    if (added) {
+        saveRegions();
+        locationResult.textContent = 'ناوی ناوچە زیاد کرا؛ ئێستا لە نەخشەکە سنوورەکەی بە polygon بکێشە.';
+    } else {
+        locationResult.textContent = 'ئەم ناوە پێشتر لە کۆمبۆی ئەم لقەدا هەیە.';
+    }
+});
 
 function getSelectedStyle() {
     return {
@@ -2005,6 +2249,32 @@ function enableNamedPointDragging(marker) {
     }
 }
 
+function commitRegionBoundary(regionLayer, name, parentRegionId) {
+    regionLayer.regionId = regionLayer.regionId || createRegionId();
+    regionLayer.parentRegionId = parentRegionId || null;
+    regionLayer.regionName = normalizeRegionName(name);
+    regionLayer.filterName = regionLayer.regionName;
+    addBranchRegionName(regionLayer.regionName);
+    enableRegionSelection(regionLayer);
+    addRegionLabel(regionLayer);
+
+    var title = document.createElement('b');
+    title.textContent = regionLayer.regionName;
+    regionLayer.bindPopup(title);
+    drawnItems.addLayer(regionLayer);
+    pendingRegionLayer = null;
+    pendingRegionParentId = null;
+    namedPointDialog.hidden = true;
+    namedPointNameInput.value = '';
+    namedPointTitle.textContent = 'ناوی خاڵ';
+    namedPointNameLabel.textContent = 'ناوی شوێن';
+    regionFilter.value = regionLayer.regionName;
+    selectRegion(regionLayer);
+    showSelectedRegion(regionFilter.value);
+    saveRegions();
+    sync3DRegions();
+}
+
 namedPointForm.addEventListener('submit', function (event) {
     event.preventDefault();
     var pointName = namedPointNameInput.value.trim();
@@ -2032,30 +2302,7 @@ namedPointForm.addEventListener('submit', function (event) {
             return;
         }
 
-        var regionLayer = pendingRegionLayer;
-        pendingRegionLayer = null;
-        regionLayer.regionId = regionLayer.regionId || createRegionId();
-        regionLayer.parentRegionId = pendingRegionParentId || null;
-        pendingRegionParentId = null;
-        regionLayer.regionName = normalizeRegionName(pointName);
-        regionLayer.filterName = regionLayer.regionName;
-        addRegionFilterOption(regionLayer.regionName);
-        enableRegionSelection(regionLayer);
-        addRegionLabel(regionLayer);
-
-        var regionTitle = document.createElement('b');
-        regionTitle.textContent = regionLayer.regionName;
-        regionLayer.bindPopup(regionTitle);
-        drawnItems.addLayer(regionLayer);
-        namedPointDialog.hidden = true;
-        namedPointNameInput.value = '';
-        namedPointTitle.textContent = 'ناوی خاڵ';
-        namedPointNameLabel.textContent = 'ناوی شوێن';
-        regionFilter.value = regionLayer.regionName;
-        selectRegion(regionLayer);
-        showSelectedRegion(regionFilter.value);
-        saveRegions();
-        sync3DRegions();
+        commitRegionBoundary(pendingRegionLayer, pointName, pendingRegionParentId);
         return;
     }
 
@@ -2128,6 +2375,14 @@ map.on(L.Draw.Event.CREATED, function (e) {
     layer.parentRegionId = parentRegion ? parentRegion.regionId : null;
     layer.regionStyle = parentRegion ? getSubRegionStyle(parentRegion) : getSelectedStyle();
     layer.setStyle(layer.regionStyle);
+
+    var selectedName = regionFilter.value;
+    if (!parentRegion && selectedName && branchRegionNames.includes(selectedName) &&
+        !getSelectedRegionLayer(selectedName)) {
+        commitRegionBoundary(layer, selectedName, null);
+        locationResult.textContent = 'سنووری «' + selectedName + '» خەزن کرا.';
+        return;
+    }
 
     pendingRegionLayer = layer;
     pendingRegionParentId = parentRegion ? parentRegion.regionId : null;

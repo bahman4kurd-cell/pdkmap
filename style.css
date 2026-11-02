@@ -319,6 +319,22 @@ body, html {
     cursor: pointer;
 }
 
+.style-panel input[type="text"],
+.style-panel input[type="email"],
+.style-panel input[type="password"] {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font: inherit;
+}
+
+.style-panel input:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
 .style-panel input[type="range"] {
     width: 100%;
 }
@@ -366,6 +382,42 @@ body, html {
     min-height: 32px;
     padding: 5px 8px;
     font-size: 12px;
+}
+
+.branch-admin-tools {
+    display: grid;
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+}
+
+.branch-admin-tools[hidden] {
+    display: none;
+}
+
+.branch-admin-tools h4 {
+    margin: 0;
+}
+
+.branch-admin-tools label {
+    margin-top: 2px;
+}
+
+.branch-admin-tools input {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font: inherit;
+}
+
+#branchAdminStatus {
+    color: #374151;
+    font-size: 12px;
+    line-height: 1.5;
 }
 
 #accessStatus {

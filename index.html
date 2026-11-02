@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=clear-focused-base-20261102" />
+    <link rel="stylesheet" href="style.css?v=branch-scoped-maps-20261102" />
 </head>
 <body>
 
@@ -36,6 +36,22 @@
             <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
             <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
         </div>
+        <label for="branchFilter">لق</label>
+        <select id="branchFilter" disabled>
+            <option value="">چاوەڕێی چوونەژوورەوە...</option>
+        </select>
+        <section id="branchAdminTools" class="branch-admin-tools" hidden>
+            <h4>بەڕێوەبردنی لق</h4>
+            <label for="branchNameInput">ناوی لق</label>
+            <input type="text" id="branchNameInput" maxlength="80" autocomplete="off">
+            <button type="button" id="saveBranchNameButton">خەزنکردنی ناوی لق</button>
+            <label for="branchAccountEmail">ئیمەیڵی هەژماری لق</label>
+            <input type="email" id="branchAccountEmail" autocomplete="off">
+            <label for="branchAccountPassword">وشەی نهێنی (کەمترین ١٠ پیت)</label>
+            <input type="password" id="branchAccountPassword" minlength="10" autocomplete="new-password">
+            <button type="button" id="saveBranchAccountButton">دروستکردن / نوێکردنەوەی هەژمار</button>
+            <span id="branchAdminStatus" role="status" aria-live="polite"></span>
+        </section>
         <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
@@ -59,6 +75,9 @@
             <input type="checkbox" id="streetMapToggle" checked>
             پیشاندانی شەقام و شوێنەکان
         </label>
+        <label for="newRegionName">ناوی ناوچەی نوێ</label>
+        <input type="text" id="newRegionName" maxlength="80" autocomplete="off" disabled>
+        <button type="button" id="addRegionNameButton" disabled>زیادکردنی ناوچە بۆ کۆمبۆ</button>
         <label for="regionFilter">پیشاندانی ناوچە</label>
         <select id="regionFilter">
             <option value="">هەموو ناوچەکان</option>
@@ -137,6 +156,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=clear-3d-region-base-20261102"></script>
+    <script src="main.js?v=branch-scoped-maps-20261102"></script>
 </body>
 </html>
