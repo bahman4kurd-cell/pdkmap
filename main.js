@@ -1067,11 +1067,15 @@ function focusRegionView(layer) {
 
     if (currentMapMode === '3d' && map3D) {
         var bounds = layer.getBounds();
+        var leftPadding = Math.min(
+            280,
+            Math.max(48, map3D.getContainer().clientWidth * 0.46)
+        );
         var camera = map3D.cameraForBounds([
             [bounds.getWest(), bounds.getSouth()],
             [bounds.getEast(), bounds.getNorth()]
         ], {
-            padding: { top: 48, right: 48, bottom: 48, left: 280 },
+            padding: { top: 48, right: 48, bottom: 48, left: leftPadding },
             maxZoom: 14,
             pitch: 45,
         });
