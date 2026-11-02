@@ -1063,22 +1063,34 @@ function focusRegionView(layer) {
 
     if (currentMapMode === '3d' && map3D) {
         var bounds = layer.getBounds();
-        map3D.fitBounds([
+        var camera = map3D.cameraForBounds([
             [bounds.getWest(), bounds.getSouth()],
             [bounds.getEast(), bounds.getNorth()]
         ], {
             padding: { top: 48, right: 48, bottom: 48, left: 280 },
             maxZoom: 14,
             pitch: 45,
-            duration: 1000
         });
+        if (!camera) return;
+        map3D.easeTo(Object.assign({}, camera, {
+            zoom: Math.max(map3D.getZoom(), camera.zoom),
+            duration: 1000
+        }));
         return;
     }
 
-    map.flyToBounds(layer.getBounds(), {
-        paddingTopLeft: [280, 48],
-        paddingBottomRight: [48, 48],
-        maxZoom: 14,
+    var bounds = layer.getBounds();
+    var padding = L.point(164, 48);
+    var zoom = Math.max(map.getZoom(), Math.min(
+        map.getBoundsZoom(bounds, false, padding),
+        14
+    ));
+    var paddingOffset = L.point(48, 48).subtract(L.point(280, 48)).divideBy(2);
+    var center = map.unproject(
+        map.project(bounds.getCenter(), zoom).add(paddingOffset),
+        zoom
+    );
+    map.flyTo(center, zoom, {
         duration: 1
     });
 }
