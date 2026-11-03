@@ -385,6 +385,130 @@ body, html {
     font-size: 12px;
 }
 
+.boundary-stats-panel {
+    position: fixed;
+    top: 76px;
+    right: 12px;
+    z-index: 900;
+    display: grid;
+    gap: 10px;
+    width: min(310px, calc(100vw - 260px));
+    max-height: min(60vh, 560px);
+    overflow-y: auto;
+    padding: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 8px 26px rgba(15, 23, 42, 0.22);
+    backdrop-filter: blur(8px);
+}
+
+.boundary-stats-panel h2 {
+    color: #0f172a;
+    font-size: 16px;
+}
+
+.boundary-stats-mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.boundary-stats-mode button,
+.boundary-stats-panel > button,
+.population-editor button {
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: #e2e8f0;
+    color: #1e293b;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.boundary-stats-mode button[aria-pressed="true"],
+.boundary-stats-panel > button,
+.population-editor button {
+    background: #0f766e;
+    color: #fff;
+}
+
+.boundary-stats-panel button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.boundary-stats-scope {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.boundary-stats-list {
+    display: grid;
+    gap: 7px;
+}
+
+.boundary-stats-list > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: #f1f5f9;
+}
+
+.boundary-stats-list dt {
+    color: #475569;
+    font-size: 12px;
+}
+
+.boundary-stats-list dd {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.boundary-stats-note {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.population-editor {
+    display: grid;
+    gap: 7px;
+    padding-top: 9px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.population-editor label {
+    color: #334155;
+    font-size: 12px;
+}
+
+.population-editor input {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font: inherit;
+}
+
+.population-editor input:disabled {
+    background: #f1f5f9;
+}
+
+.boundary-stats-panel [hidden] {
+    display: none !important;
+}
+
 .branch-management-dialog {
     width: min(560px, calc(100vw - 28px));
     max-width: none;
@@ -838,6 +962,17 @@ body, html {
     .named-point-symbol::after,
     .named-point-symbol svg {
         animation: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .boundary-stats-panel {
+        top: auto;
+        right: 8px;
+        bottom: 10px;
+        width: min(300px, calc(100vw - 24px));
+        max-height: 36vh;
+        padding: 10px;
     }
 }
 

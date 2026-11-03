@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=cinematic-globe-20261103c" />
+    <link rel="stylesheet" href="style.css?v=boundary-stats-20261103" />
 </head>
 <body>
 
@@ -90,6 +90,42 @@
         <span id="storageStatus" role="status" aria-live="polite">خەریکی پەیوەندی بە داتابەیس...</span>
         <p class="creator-credit creator-credit-panel">دروستکردنی: بەهمەن دەروێش علی / یەکەی ئایتی</p>
     </div>
+
+    <aside id="boundaryStatsPanel" class="boundary-stats-panel" aria-labelledby="boundaryStatsTitle">
+        <h2 id="boundaryStatsTitle">ئاماری سنوور</h2>
+        <div class="boundary-stats-mode" role="group" aria-label="شێوازی ئاماری سنوور">
+            <button type="button" id="regionStatsModeButton" aria-pressed="true">ناوچەی هەڵبژێردراو</button>
+            <button type="button" id="branchStatsModeButton" aria-pressed="false">کۆی لق</button>
+        </div>
+        <p id="boundaryStatsScope" class="boundary-stats-scope">ناوچەیەک لە نەخشەکە هەڵبژێرە.</p>
+        <dl class="boundary-stats-list">
+            <div>
+                <dt>ڕووبەر</dt>
+                <dd id="boundaryAreaValue">—</dd>
+            </div>
+            <div>
+                <dt>دانیشتوان</dt>
+                <dd id="boundaryPopulationValue">—</dd>
+            </div>
+            <div>
+                <dt>بینا لە OpenStreetMap</dt>
+                <dd id="boundaryBuildingValue">—</dd>
+            </div>
+            <div id="branchRegionCountRow" hidden>
+                <dt>سنووری سەرەکی</dt>
+                <dd id="branchRegionCountValue">—</dd>
+            </div>
+        </dl>
+        <p id="boundaryStatsNote" class="boundary-stats-note" role="status" aria-live="polite">
+            ڕووبەر لە پۆلیگۆن هەژمار دەکرێت؛ ژمارەی بینا تەنها ئەو بینانەیە کە لە OpenStreetMap تۆمارکراون.
+        </p>
+        <form id="populationEditor" class="population-editor" hidden>
+            <label for="populationCountInput">ژمارەی دانیشتوانی پشتڕاستکراو</label>
+            <input id="populationCountInput" type="number" min="0" step="1" inputmode="numeric">
+            <button type="submit" id="savePopulationButton">خەزنکردنی دانیشتوان</button>
+        </form>
+        <button type="button" id="refreshBuildingStatsButton">نوێکردنەوەی ژمارەی بینا</button>
+    </aside>
 
     <dialog id="branchManagementDialog" class="branch-management-dialog" aria-labelledby="branchManagementTitle">
         <section class="branch-management-panel">
@@ -187,6 +223,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=cinematic-globe-20261103c"></script>
+    <script src="main.js?v=boundary-stats-20261103"></script>
 </body>
 </html>

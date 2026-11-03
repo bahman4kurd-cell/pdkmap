@@ -37,6 +37,12 @@ For an existing deployment, run `supabase-migration-multi-branch-access.sql` in 
 
 Branch accounts are created as confirmed Supabase Auth users by the Edge Function. It verifies the caller's session and main-admin role before using the server-only service key. Email/password values are sent over HTTPS and are not stored in the app or map database.
 
+## Boundary statistics
+
+The statistics panel reports the selected polygon's area in square kilometres and can switch to a branch summary. Branch area uses the union of primary region polygons so nested sub-polygons are not counted twice. Administrators can enter a verified population count for a selected region; it is saved with that region's GeoJSON and included in branch totals when present. Branch population totals show how many primary regions have a recorded value.
+
+Building counts are fetched from OpenStreetMap's Overpass API and count mapped `building` elements inside the selected boundary or branch. They are coverage counts, not a complete house census; unmapped buildings and non-residential buildings mean the result is not an authoritative household count. The panel labels this limitation and provides a refresh action.
+
 ## Local-data migration
 
 If existing map data is only in this browser's IndexedDB and not in the old cloud `map_state`, sign in as the main administrator, select branch 4, and use the migration button. Do not clear browser data until the migration finishes and branch 4's map is verified.

@@ -156,6 +156,24 @@ var subRegionDrawHandler = null;
 var regionInfoCache = new WeakMap();
 var regionInfoAbortController = null;
 var regionInfoRequestLayer = null;
+var boundaryStatsPanel = document.getElementById('boundaryStatsPanel');
+var regionStatsModeButton = document.getElementById('regionStatsModeButton');
+var branchStatsModeButton = document.getElementById('branchStatsModeButton');
+var boundaryStatsScope = document.getElementById('boundaryStatsScope');
+var boundaryAreaValue = document.getElementById('boundaryAreaValue');
+var boundaryPopulationValue = document.getElementById('boundaryPopulationValue');
+var boundaryBuildingValue = document.getElementById('boundaryBuildingValue');
+var branchRegionCountRow = document.getElementById('branchRegionCountRow');
+var branchRegionCountValue = document.getElementById('branchRegionCountValue');
+var boundaryStatsNote = document.getElementById('boundaryStatsNote');
+var populationEditor = document.getElementById('populationEditor');
+var populationCountInput = document.getElementById('populationCountInput');
+var savePopulationButton = document.getElementById('savePopulationButton');
+var refreshBuildingStatsButton = document.getElementById('refreshBuildingStatsButton');
+var boundaryStatsMode = 'region';
+var buildingCountCache = new Map();
+var buildingStatsAbortController = null;
+var buildingStatsRequestToken = 0;
 
 var borderColorInput = document.getElementById('borderColor');
 var fillColorInput = document.getElementById('fillColor');
@@ -295,7 +313,9 @@ function getRegionFeatureCollection() {
             fillColor: layer.regionStyle.fillColor,
             fillOpacity: layer.regionStyle.fillOpacity,
             pointColor: layer.kind === 'named-point' ?
-                normalizeNamedPointColor(layer.pointColor) : null
+                normalizeNamedPointColor(layer.pointColor) : null,
+            populationCount: Number.isSafeInteger(layer.populationCount) &&
+                layer.populationCount >= 0 ? layer.populationCount : null
         });
         features.push(feature);
     });
@@ -1043,6 +1063,205 @@ async function requestRegionInfo(layer, signal) {
     throw lastError || new Error('نەتوانرا زانیارییەکان بهێنرێن.');
 }
 
+function getBoundaryStatsLayers() {
+    if (boundaryStatsMode === 'region') {
+        return selectedRegionLayer && selectedRegionLayer.kind !== 'named-point' ?
+            [selectedRegionLayer] : [];
+    }
+
+    var layers = [];
+    drawnItems.eachLayer(function (layer) {
+        if (layer.kind !== 'named-point' && !layer.parentRegionId) layers.push(layer);
+    });
+    return layers;
+}
+
+function getBoundaryStatsArea(layers) {
+    var features = layers.map(function (layer) {
+        return layer.toGeoJSON();
+    });
+    if (!features.length) return 0;
+    var areaFeature = features.length === 1 ? features[0] :
+        turf.union(turf.featureCollection(features));
+    return areaFeature ? turf.area(areaFeature) : 0;
+}
+
+function createBuildingCountQuery(layers) {
+    var queries = [];
+    layers.forEach(function (layer) {
+        var feature = turf.simplify(layer.toGeoJSON(), {
+            tolerance: 0.00005,
+            highQuality: false
+        });
+        var geometry = feature.geometry;
+        var polygons = geometry.type === 'Polygon' ? [geometry.coordinates] :
+            geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+
+        polygons.forEach(function (polygon) {
+            var outerRing = polygon[0];
+            if (!outerRing || outerRing.length < 4) return;
+            var coordinates = outerRing.map(function (coordinate) {
+                return coordinate[1].toFixed(6) + ' ' + coordinate[0].toFixed(6);
+            }).join(' ');
+            queries.push('nwr(poly:"' + coordinates + '")["building"];');
+        });
+    });
+
+    if (!queries.length) {
+        throw new Error('هیچ پۆلیگۆنێکی دروست بۆ ژماردنی بیناکان نییە.');
+    }
+    return '[out:json][timeout:60];(' + queries.join('') + ');out ids;';
+}
+
+async function requestBuildingCount(layers, signal) {
+    var query = createBuildingCountQuery(layers);
+    var endpoints = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter'
+    ];
+    var lastError;
+
+    for (var endpoint of endpoints) {
+        try {
+            var response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                },
+                body: new URLSearchParams({ data: query }),
+                signal: signal
+            });
+            if (!response.ok) {
+                throw new Error('سێرڤەری OpenStreetMap وەڵامی ' +
+                    response.status + 'ی دایە.');
+            }
+            var data = await response.json();
+            return (data.elements || []).length;
+        } catch (error) {
+            if (signal.aborted) throw error;
+            lastError = error;
+        }
+    }
+    throw lastError || new Error('نەتوانرا ژمارەی بیناکان بهێنرێت.');
+}
+
+function formatBoundaryStat(value, fractionDigits) {
+    return new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: fractionDigits == null ? 0 : fractionDigits
+    }).format(value);
+}
+
+function updateBoundaryStats() {
+    if (buildingStatsAbortController) {
+        buildingStatsAbortController.abort();
+        buildingStatsAbortController = null;
+    }
+    var requestToken = ++buildingStatsRequestToken;
+    var layers = getBoundaryStatsLayers();
+    var isBranchSummary = boundaryStatsMode === 'branch';
+    regionStatsModeButton.setAttribute('aria-pressed', String(!isBranchSummary));
+    branchStatsModeButton.setAttribute('aria-pressed', String(isBranchSummary));
+    branchRegionCountRow.hidden = !isBranchSummary;
+    populationEditor.hidden = isBranchSummary ||
+        !selectedRegionLayer || selectedRegionLayer.kind === 'named-point';
+    populationCountInput.disabled = !isMapAdmin || populationEditor.hidden;
+    savePopulationButton.disabled = !isMapAdmin || populationEditor.hidden;
+    refreshBuildingStatsButton.disabled = !layers.length;
+
+    if (!isBranchSummary && selectedRegionLayer &&
+        selectedRegionLayer.kind !== 'named-point') {
+        boundaryStatsScope.textContent = selectedRegionLayer.regionName || 'ناوچەی بێ‌ناو';
+        populationCountInput.value = Number.isSafeInteger(selectedRegionLayer.populationCount) ?
+            String(selectedRegionLayer.populationCount) : '';
+    } else if (isBranchSummary) {
+        var branch = availableBranches.find(function (item) {
+            return item.id === selectedBranchId;
+        });
+        boundaryStatsScope.textContent = branch ?
+            'کۆی سنوورە سەرەکییەکانی ' + branch.name :
+            'لقێک هەڵبژێرە بۆ بینینی کۆی سنوورەکان.';
+    } else {
+        boundaryStatsScope.textContent = 'ناوچەیەک لە نەخشەکە هەڵبژێرە.';
+    }
+
+    if (!layers.length) {
+        boundaryAreaValue.textContent = '—';
+        boundaryPopulationValue.textContent = '—';
+        boundaryBuildingValue.textContent = '—';
+        branchRegionCountValue.textContent = '0';
+        boundaryStatsNote.textContent = isBranchSummary ?
+            'ئەم لقە هێشتا سنووری پۆلیگۆن نییە.' :
+            'ناوچەیەک هەڵبژێرە بۆ پیشاندانی ئامار.';
+        return;
+    }
+
+    try {
+        var areaSquareKilometers = getBoundaryStatsArea(layers) / 1000000;
+        boundaryAreaValue.textContent = formatBoundaryStat(areaSquareKilometers, 2) + ' km²';
+    } catch (error) {
+        console.error('نەتوانرا ڕووبەری سنوور هەژمار بکرێت:', error);
+        boundaryAreaValue.textContent = 'هەژمارکردن سەرکەوتوو نەبوو';
+    }
+
+    var knownPopulation = 0;
+    var populationCount = 0;
+    layers.forEach(function (layer) {
+        if (Number.isSafeInteger(layer.populationCount) && layer.populationCount >= 0) {
+            knownPopulation += layer.populationCount;
+            populationCount += 1;
+        }
+    });
+    if (populationCount) {
+        boundaryPopulationValue.textContent = formatBoundaryStat(knownPopulation) +
+            (isBranchSummary ? ' (' + populationCount + '/' + layers.length + ')' : '');
+    } else {
+        boundaryPopulationValue.textContent = 'زانیاری تۆمار نەکراوە';
+    }
+
+    branchRegionCountValue.textContent = String(layers.length);
+    var populationNote = isBranchSummary ?
+        'دانیشتوانی ' + populationCount + ' لە ' + layers.length +
+            ' سنووری سەرەکی تۆمارکراوە.' :
+        'ژمارەی دانیشتوان بە دەستی ئەدمین تۆمار دەکرێت.';
+    boundaryStatsNote.textContent = populationNote +
+        ' ژمارەی بینا تەنها تۆمارەکانی OpenStreetMap ـە و دەتوانێت کەمتر بێت لە ژمارەی ڕاستەقینەی خانوو.';
+
+    var cacheKey = isBranchSummary ?
+        'branch:' + selectedBranchId : 'region:' + layers[0].regionId;
+    if (buildingCountCache.has(cacheKey)) {
+        boundaryBuildingValue.textContent =
+            formatBoundaryStat(buildingCountCache.get(cacheKey));
+        return;
+    }
+
+    var controller = new AbortController();
+    buildingStatsAbortController = controller;
+    boundaryBuildingValue.textContent = 'خەریکی ژماردن...';
+    refreshBuildingStatsButton.disabled = true;
+    requestBuildingCount(layers, controller.signal).then(function (count) {
+        if (requestToken !== buildingStatsRequestToken) return;
+        buildingCountCache.set(cacheKey, count);
+        boundaryBuildingValue.textContent = formatBoundaryStat(count);
+    }).catch(function (error) {
+        if (requestToken !== buildingStatsRequestToken ||
+            error.name === 'AbortError') return;
+        console.error('نەتوانرا ژمارەی بیناکانی سنوور بژمێردرێت:', error);
+        boundaryBuildingValue.textContent = 'بارکردن سەرکەوتوو نەبوو';
+        boundaryStatsNote.textContent += ' نوێکردنەوەی داتای بیناکان سەرکەوتوو نەبوو؛ دووبارە هەوڵ بدە.';
+    }).finally(function () {
+        if (requestToken === buildingStatsRequestToken) {
+            buildingStatsAbortController = null;
+            refreshBuildingStatsButton.disabled = !getBoundaryStatsLayers().length;
+        }
+    });
+}
+
+function setBoundaryStatsMode(mode) {
+    boundaryStatsMode = mode;
+    updateBoundaryStats();
+}
+
 function renderRegionInfo(data) {
     var streets = new Set();
     var neighbourhoods = new Set();
@@ -1387,7 +1606,9 @@ function finishDeleteSelectedRegion() {
 
     pendingDeleteRegionLayer = null;
     deleteRegionDialog.hidden = true;
+    buildingCountCache.clear();
     showSelectedRegion(regionFilter.value);
+    updateBoundaryStats();
     saveRegions();
     sync3DRegions();
 }
@@ -1455,6 +1676,7 @@ function selectRegion(layer) {
         regionInfoRequestLayer = null;
         regionInfoResults.textContent = 'ناوچەیەک هەڵبژێرە بۆ گەڕانی زانیاری.';
         update3DRegionFilter();
+        updateBoundaryStats();
         return;
     }
 
@@ -1465,6 +1687,7 @@ function selectRegion(layer) {
     opacityValue.textContent = fillOpacityInput.value;
     refreshDrawStyle();
     update3DRegionFilter();
+    updateBoundaryStats();
     loadRegionInfo(layer, false);
 }
 
@@ -1539,6 +1762,8 @@ function loadFeatureCollection(savedRegions) {
 
                 layer.regionId = properties.regionId || createRegionId();
                 layer.parentRegionId = properties.parentRegionId || null;
+                layer.populationCount = Number.isSafeInteger(properties.populationCount) &&
+                    properties.populationCount >= 0 ? properties.populationCount : null;
                 if (!properties.regionId) regionNameChanged = true;
                 layer.regionName = normalizeRegionName(properties.name);
                 layer.filterName = normalizeRegionName(properties.filterName || properties.name);
@@ -1560,6 +1785,8 @@ function loadFeatureCollection(savedRegions) {
 
     showSelectedRegion('');
     sync3DRegions();
+    buildingCountCache.clear();
+    updateBoundaryStats();
     return regionNameChanged;
 }
 
@@ -1640,6 +1867,7 @@ function setMapEditorPermissions(canEdit) {
         if (marker.setDraggable) marker.setDraggable(isMapAdmin);
     });
     sync3DRegions();
+    updateBoundaryStats();
 }
 
 function writeCloudFeatureCollection(collection) {
@@ -1841,6 +2069,7 @@ async function switchMapBranch(branchId) {
     stopGlobeRotation();
     pendingBranchFocus = false;
     pendingBranchFocusDuration = null;
+    buildingCountCache.clear();
     selectedBranchId = branchId;
     branchFilter.value = branchId;
     unsubscribeFromCloudMap();
@@ -2536,6 +2765,49 @@ refreshRegionInfoButton.addEventListener('click', function () {
     loadRegionInfo(selectedRegionLayer, true);
 });
 
+regionStatsModeButton.addEventListener('click', function () {
+    setBoundaryStatsMode('region');
+});
+
+branchStatsModeButton.addEventListener('click', function () {
+    setBoundaryStatsMode('branch');
+});
+
+populationEditor.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    if (!isMapAdmin || !selectedRegionLayer ||
+        selectedRegionLayer.kind === 'named-point') return;
+
+    var rawValue = populationCountInput.value.trim();
+    var population = rawValue === '' ? null : Number(rawValue);
+    if (population !== null &&
+        (!Number.isSafeInteger(population) || population < 0)) {
+        boundaryStatsNote.textContent =
+            'ژمارەی دانیشتوان دەبێت ژمارەیەکی تەواو و سفر یان زیاتر بێت.';
+        populationCountInput.focus();
+        return;
+    }
+
+    selectedRegionLayer.populationCount = population;
+    updateBoundaryStats();
+    savePopulationButton.disabled = true;
+    var saved = await saveRegions();
+    savePopulationButton.disabled = !isMapAdmin;
+    if (saved) {
+        boundaryStatsNote.textContent = population === null ?
+            'زانیاریی دانیشتوان لەم ناوچەیە سڕایەوە و گۆڕانکارییەکان خەزن کران.' :
+            'ژمارەی دانیشتوان لەگەڵ سنووری ناوچەکە خەزن کرا.';
+    } else {
+        boundaryStatsNote.textContent =
+            'ژمارەکە لە ماپەکە دانرا، بەڵام لە cloud خەزن نەکرا؛ پەیوەندی و مۆڵەتەکان بپشکنە.';
+    }
+});
+
+refreshBuildingStatsButton.addEventListener('click', function () {
+    buildingCountCache.clear();
+    updateBoundaryStats();
+});
+
 createSubRegionButton.addEventListener('click', beginSubRegionDrawing);
 
 function setNamedPointPlacement(active) {
@@ -2649,6 +2921,7 @@ function commitRegionBoundary(regionLayer, name, parentRegionId) {
     title.textContent = regionLayer.regionName;
     regionLayer.bindPopup(title);
     drawnItems.addLayer(regionLayer);
+    buildingCountCache.clear();
     pendingRegionLayer = null;
     pendingRegionParentId = null;
     namedPointDialog.hidden = true;
@@ -2784,12 +3057,16 @@ map.on(L.Draw.Event.CREATED, function (e) {
 });
 
 map.on(L.Draw.Event.EDITED, function () {
+    buildingCountCache.clear();
+    updateBoundaryStats();
     saveRegions();
     sync3DRegions();
     updateMapFocusBlurOverlay();
     update3DFocusBlurOverlay();
 });
 map.on(L.Draw.Event.DELETED, function () {
+    buildingCountCache.clear();
+    updateBoundaryStats();
     saveRegions();
     sync3DRegions();
     updateMapFocusBlurOverlay();
