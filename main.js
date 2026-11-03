@@ -35,7 +35,7 @@ var satelliteLabelsLayer = L.tileLayer(
 );
 var streetMapToggle = document.getElementById('streetMapToggle');
 var satelliteMapButton = document.getElementById('satelliteMapButton');
-var currentMapMode = '2d';
+var currentMapMode = '3d';
 
 function syncLeafletBaseLayers() {
     [streetMapLayer, satelliteMapLayer, satelliteLabelsLayer].forEach(function (layer) {
@@ -170,6 +170,9 @@ var satelliteModeButton = document.getElementById('satelliteMapButton');
 var addNamedPointButton = document.getElementById('addNamedPointButton');
 var map3DContainer = document.getElementById('map3d');
 var map3D = null;
+var globeRotationFrame = null;
+var globeRotationTimestamp = null;
+var pendingBranchFocus = false;
 var map3DRegionLabels = new Map();
 var map3DSelectionOutline = null;
 var map3DSelectionFillPath = null;
@@ -625,20 +628,27 @@ function initialize3DMap() {
     map3D = new maplibregl.Map({
         container: 'map3d',
         style: 'https://tiles.openfreemap.org/styles/liberty',
-        center: [43.7, 33.2],
-        zoom: 6,
-        minZoom: 5,
+        center: [5, 20],
+        zoom: 1.6,
+        minZoom: 1.4,
         maxZoom: 17,
-        pitch: 60,
-        bearing: -20,
+        pitch: 0,
+        bearing: 0,
         maxPitch: 75,
-        maxBounds: [[38.0, 28.0], [49.5, 37.8]],
+        projection: { type: 'globe' },
         attributionControl: true
     });
     map3DFocusBlurOverlay = createMapFocusBlurOverlay(map3DContainer);
     map3D.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map3D.on('load', function () {
+        map3D.setProjection({ type: 'globe' });
+        map3D.setFog({
+            color: 'rgb(12, 24, 43)',
+            'high-color': 'rgb(35, 92, 140)',
+            'space-color': 'rgb(3, 8, 20)',
+            'star-intensity': 0.25
+        });
         var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
             return layer.type === 'symbol';
         });
@@ -751,6 +761,113 @@ function initialize3DMap() {
             sync3DSelectionOutline();
             update3DFocusBlurOverlay();
         });
+        if (pendingBranchFocus && selectedBranchId) {
+            pendingBranchFocus = false;
+            focusMapToBranch(5600);
+        } else {
+            startGlobeRotation();
+        }
+    });
+}
+
+function stopGlobeRotation() {
+    if (globeRotationFrame !== null) {
+        cancelAnimationFrame(globeRotationFrame);
+        globeRotationFrame = null;
+    }
+    globeRotationTimestamp = null;
+}
+
+function startGlobeRotation() {
+    if (!map3D || currentMapMode !== '3d' || selectedBranchId ||
+        !map3D.isStyleLoaded() || globeRotationFrame !== null ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    function rotateGlobe(timestamp) {
+        if (currentMapMode !== '3d' || selectedBranchId || !map3D) {
+            stopGlobeRotation();
+            return;
+        }
+        if (globeRotationTimestamp !== null) {
+            var elapsed = Math.min(timestamp - globeRotationTimestamp, 100);
+            var center = map3D.getCenter();
+            map3D.setCenter([center.lng + elapsed * 0.003, center.lat]);
+        }
+        globeRotationTimestamp = timestamp;
+        globeRotationFrame = requestAnimationFrame(rotateGlobe);
+    }
+
+    globeRotationFrame = requestAnimationFrame(rotateGlobe);
+}
+
+function returnToGlobe() {
+    pendingBranchFocus = false;
+    stopGlobeRotation();
+    if (currentMapMode !== '3d' || !map3D || !map3D.isStyleLoaded()) return;
+
+    map3D.once('moveend', startGlobeRotation);
+    map3D.flyTo({
+        center: [5, 20],
+        zoom: 1.6,
+        pitch: 0,
+        bearing: 0,
+        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1800,
+        essential: true
+    });
+}
+
+function getBranchBounds() {
+    var regions = L.geoJSON(getRegionFeatureCollection(), {
+        filter: function (feature) {
+            return !feature.properties || feature.properties.kind !== 'named-point';
+        }
+    });
+    var bounds = regions.getBounds();
+    return bounds.isValid() ? bounds : iraqBounds;
+}
+
+function focusMapToBranch(duration) {
+    if (!selectedBranchId) return;
+    stopGlobeRotation();
+    var bounds = getBranchBounds();
+    var motionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ?
+        0 : duration;
+
+    if (currentMapMode === '3d') {
+        if (!map3D || !map3D.isStyleLoaded()) {
+            pendingBranchFocus = true;
+            return;
+        }
+        var leftPadding = Math.min(
+            300,
+            Math.max(56, map3D.getContainer().clientWidth * 0.42)
+        );
+        var camera = map3D.cameraForBounds([
+            [bounds.getWest(), bounds.getSouth()],
+            [bounds.getEast(), bounds.getNorth()]
+        ], {
+            padding: { top: 56, right: 56, bottom: 56, left: leftPadding },
+            maxZoom: 12,
+            pitch: 48
+        });
+        if (!camera) return;
+        map3D.flyTo(Object.assign({}, camera, {
+            zoom: Math.min(camera.zoom, 12),
+            pitch: 48,
+            bearing: -12,
+            duration: motionDuration,
+            curve: 1.55,
+            essential: true
+        }));
+        return;
+    }
+
+    map.flyToBounds(bounds, {
+        paddingTopLeft: [280, 56],
+        paddingBottomRight: [56, 56],
+        maxZoom: 14,
+        duration: motionDuration / 1000,
+        easeLinearity: 0.18
     });
 }
 
@@ -772,16 +889,21 @@ function setMapMode(mode) {
             sync3DRegions();
             if (selectedRegionLayer) {
                 focusRegionView(selectedRegionLayer);
+            } else if (selectedBranchId) {
+                focusMapToBranch(900);
             } else {
-                fitMapToIraq(0);
+                startGlobeRotation();
             }
         });
     } else {
+        stopGlobeRotation();
         syncLeafletBaseLayers();
         map.invalidateSize();
         requestAnimationFrame(function () {
             if (selectedRegionLayer) {
                 focusRegionView(selectedRegionLayer);
+            } else if (selectedBranchId) {
+                focusMapToBranch(900);
             } else {
                 fitMapToIraq(0);
             }
@@ -1688,6 +1810,8 @@ function updateBranchAdminControls() {
 async function switchMapBranch(branchId) {
     if (!availableBranches.some(function (branch) { return branch.id === branchId; })) return;
 
+    stopGlobeRotation();
+    pendingBranchFocus = false;
     selectedBranchId = branchId;
     branchFilter.value = branchId;
     unsubscribeFromCloudMap();
@@ -1696,7 +1820,7 @@ async function switchMapBranch(branchId) {
     migrateLocalDataButton.hidden = true;
     var loaded = await loadCloudMap(branchId, loadToken);
     if (loaded && loadToken === branchLoadToken) {
-        fitMapToIraq(700);
+        focusMapToBranch(5600);
         subscribeToCloudMap(branchId);
     }
 }
@@ -1806,6 +1930,7 @@ async function applyAuthenticatedSession(session) {
         mapAccessGate.hidden = false;
         accessStatus.textContent = 'چوونەژوورەوە پێویستە';
         mapAccessMessage.textContent = 'بۆ بینینی نەخشە، بە هەژماری خۆت بچۆرە ژوورەوە.';
+        returnToGlobe();
         if (supabaseClient) adminEmailInput.focus();
         return;
     }
@@ -2696,5 +2821,5 @@ map.on('click', function (event) {
         .openOn(map);
 });
 
-map.fitBounds(iraqBounds, { padding: [20, 20] });
+setMapMode('3d');
 initializeOnlineAccess();
