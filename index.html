@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=branches-iraq-viewer-20261102" />
+    <link rel="stylesheet" href="style.css?v=multi-branch-viewer-admin-20261103" />
 </head>
 <body>
 
@@ -41,7 +41,7 @@
         <select id="branchFilter" disabled>
             <option value="">چاوەڕێی چوونەژوورەوە...</option>
         </select>
-        <p id="branchViewNotice" class="branch-view-notice" hidden>تەنها لقەکەی خۆت دەبینیت؛ مۆڵەتی دەستکاریکردنت نییە.</p>
+        <p id="branchViewNotice" class="branch-view-notice" hidden>تەنها لقە دیاریکراوەکانت دەبینیت؛ مۆڵەتی دەستکاریکردنت نییە.</p>
         <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
@@ -97,7 +97,7 @@
                 <h2 id="branchManagementTitle">بەڕێوەبردنی لقەکان</h2>
                 <button type="button" id="closeBranchManagementButton" aria-label="داخستن">×</button>
             </div>
-            <p>لقی نوێ زیاد بکە یان ناو و هەژماری لقێکی هەڵبژێردراو بەڕێوەببە. هەژماری لق تەنها مۆڵەتی بینینی نەخشەی لقی خۆی هەیە.</p>
+            <p>لقی نوێ زیاد بکە، ناو و سنوورەکان دەستکاری بکە، یان بۆ هەژماری بینەر چەند لق هەڵبژێرە. هەژماری بینەر تەنها دەتوانێت لقە دیاریکراوەکان ببینێت.</p>
             <section class="branch-management-section">
                 <h3>دروستکردنی لقی نوێ</h3>
                 <label for="newBranchName">ناوی لق</label>
@@ -111,10 +111,13 @@
                 <label for="branchNameInput">ناوی لق</label>
                 <input type="text" id="branchNameInput" maxlength="80" autocomplete="off">
                 <button type="button" id="saveBranchNameButton">خەزنکردنی ناوی لق</button>
+                <button type="button" id="deleteBranchButton" class="danger-action">سڕینەوەی ئەم لقە و هەموو داتاکەی</button>
                 <label for="branchAccountEmail">ئیمەیڵی هەژماری بینەر</label>
                 <input type="email" id="branchAccountEmail" autocomplete="off">
                 <label for="branchAccountPassword">وشەی نهێنی (کەمترین ١٠ پیت)</label>
                 <input type="password" id="branchAccountPassword" minlength="10" autocomplete="new-password">
+                <span id="branchAccountAccessLabel">هەڵبژاردنی ئەو لقانەی هەژمارەکە دەتوانێت ببینێت</span>
+                <div id="branchAccountAccessChoices" class="branch-access-choices" role="group" aria-labelledby="branchAccountAccessLabel"></div>
                 <button type="button" id="saveBranchAccountButton">دروستکردن / نوێکردنەوەی هەژماری بینەر</button>
             </section>
             <span id="branchAdminStatus" role="status" aria-live="polite"></span>
@@ -176,6 +179,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=branches-iraq-viewer-20261102"></script>
+    <script src="main.js?v=multi-branch-viewer-admin-20261103"></script>
 </body>
 </html>

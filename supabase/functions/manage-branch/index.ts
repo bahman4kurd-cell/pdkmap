@@ -78,13 +78,102 @@ Deno.serve(async (request: Request) => {
       return response(request, 200, { branch });
     }
 
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    if (action === "set-branch-account") {
+      const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+      const password = typeof payload.password === "string" ? payload.password : "";
+      const branchIds = Array.isArray(payload.branchIds)
+        ? [...new Set(payload.branchIds.filter((id: unknown): id is string => typeof id === "string"))]
+        : [];
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+        return response(request, 400, { error: "Enter a valid email address." });
+      }
+      if (password.length < 10 || password.length > 128) {
+        return response(request, 400, { error: "Passwords must contain 10 to 128 characters." });
+      }
+      if (!branchIds.length || branchIds.some((id: string) => !/^branch-[a-z0-9-]{1,60}$/.test(id))) {
+        return response(request, 400, { error: "Choose at least one valid branch." });
+      }
+
+      const { data: selectedBranches, error: selectedBranchesError } = await adminClient
+        .from("map_branches")
+        .select("id")
+        .in("id", branchIds);
+      if (selectedBranchesError) throw selectedBranchesError;
+      if (selectedBranches.length !== branchIds.length) {
+        return response(request, 400, { error: "One or more selected branches do not exist." });
+      }
+
+      let existingUser: { id: string; email?: string } | null = null;
+      for (let page = 1; ; page += 1) {
+        const { data, error } = await adminClient.auth.admin.listUsers({
+          page,
+          perPage: 1000,
+        });
+        if (error) throw error;
+        existingUser = data.users.find((user) => user.email?.toLowerCase() === email) || null;
+        if (existingUser || data.users.length < 1000) break;
+      }
+
+      let userId: string;
+      let createdUser = false;
+      if (existingUser) {
+        const { data: adminAssignment, error: adminAssignmentError } = await adminClient
+          .from("map_admins")
+          .select("user_id")
+          .eq("user_id", existingUser.id)
+          .maybeSingle();
+        if (adminAssignmentError) throw adminAssignmentError;
+        if (adminAssignment) {
+          return response(request, 400, { error: "A main administrator account cannot be used as a branch viewer." });
+        }
+
+        const { error } = await adminClient.auth.admin.updateUserById(existingUser.id, {
+          email,
+          password,
+          email_confirm: true,
+        });
+        if (error) throw error;
+        userId = existingUser.id;
+      } else {
+        const { data: created, error: createError } = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+        if (createError) throw createError;
+        if (!created.user) throw new Error("Supabase did not return the newly created user.");
+        userId = created.user.id;
+        createdUser = true;
+      }
+
+      const { error: accessError } = await callerClient.rpc("set_map_branch_access", {
+        target_user_id: userId,
+        target_branch_ids: branchIds,
+      });
+      if (accessError) {
+        if (createdUser) {
+          const { error: rollbackError } = await adminClient.auth.admin.deleteUser(userId);
+          if (rollbackError) {
+            console.error("Could not remove a viewer account after branch assignment failed.", rollbackError);
+            throw new Error(
+              "The account was created but could not be assigned or removed. Contact the project administrator.",
+            );
+          }
+        }
+        throw accessError;
+      }
+
+      return response(request, 200, { branchIds, email });
+    }
+
     if (!/^branch-[a-z0-9-]{1,60}$/.test(branchId)) {
       return response(request, 400, { error: "Choose a valid configured branch." });
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
     const { data: branch, error: branchError } = await adminClient
       .from("map_branches")
       .select("id")
@@ -108,55 +197,14 @@ Deno.serve(async (request: Request) => {
       return response(request, 200, { branch: data });
     }
 
-    if (action === "set-branch-account") {
-      const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-      const password = typeof payload.password === "string" ? payload.password : "";
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
-        return response(request, 400, { error: "Enter a valid email address." });
-      }
-      if (password.length < 10 || password.length > 128) {
-        return response(request, 400, { error: "Passwords must contain 10 to 128 characters." });
-      }
-
-      const { data: assignment, error: assignmentError } = await adminClient
-        .from("map_branch_users")
-        .select("user_id")
-        .eq("branch_id", branchId)
-        .maybeSingle();
-      if (assignmentError) throw assignmentError;
-
-      if (assignment) {
-        const { error } = await adminClient.auth.admin.updateUserById(assignment.user_id, {
-          email,
-          password,
-          email_confirm: true,
-        });
-        if (error) throw error;
-      } else {
-        const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-        });
-        if (createError) throw createError;
-        if (!created.user) throw new Error("Supabase did not return the newly created user.");
-
-        const { error: assignmentCreateError } = await adminClient
-          .from("map_branch_users")
-          .insert({ user_id: created.user.id, branch_id: branchId });
-        if (assignmentCreateError) {
-          const { error: rollbackError } = await adminClient.auth.admin.deleteUser(created.user.id);
-          if (rollbackError) {
-            console.error("Could not remove an unassigned account after provisioning failed.", rollbackError);
-            throw new Error(
-              "The account was created but could not be assigned or removed. Contact the project administrator.",
-            );
-          }
-          throw assignmentCreateError;
-        }
-      }
-
-      return response(request, 200, { branchId, email });
+    if (action === "delete-branch") {
+      const { data, error } = await callerClient.rpc("delete_map_branch", {
+        target_branch_id: branchId,
+      });
+      if (error) throw error;
+      const deleted = Array.isArray(data) ? data[0] : data;
+      if (!deleted) throw new Error("Supabase did not return the deleted branch.");
+      return response(request, 200, { branch: deleted });
     }
 
     return response(request, 400, { error: "Unsupported branch management action." });

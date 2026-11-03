@@ -117,8 +117,10 @@ var newBranchNameInput = document.getElementById('newBranchName');
 var createBranchButton = document.getElementById('createBranchButton');
 var branchNameInput = document.getElementById('branchNameInput');
 var saveBranchNameButton = document.getElementById('saveBranchNameButton');
+var deleteBranchButton = document.getElementById('deleteBranchButton');
 var branchAccountEmailInput = document.getElementById('branchAccountEmail');
 var branchAccountPasswordInput = document.getElementById('branchAccountPassword');
+var branchAccountAccessChoices = document.getElementById('branchAccountAccessChoices');
 var saveBranchAccountButton = document.getElementById('saveBranchAccountButton');
 var branchAdminStatus = document.getElementById('branchAdminStatus');
 var newRegionNameInput = document.getElementById('newRegionName');
@@ -1581,7 +1583,7 @@ async function loadCloudMap(branchId, loadToken) {
     return true;
 }
 
-async function loadBranchOptions(assignedBranchId) {
+async function loadBranchOptions(assignedBranchIds) {
     var result = await supabaseClient.from('map_branches')
         .select('id, name, sort_order')
         .order('sort_order');
@@ -1590,12 +1592,14 @@ async function loadBranchOptions(assignedBranchId) {
     availableBranches = result.data || [];
     updateBranchSelectors();
 
+    assignedBranchIds = assignedBranchIds || [];
     var targetBranchId = isGlobalMapAdmin ?
         (availableBranches.some(function (branch) { return branch.id === selectedBranchId; }) ?
             selectedBranchId :
             (availableBranches.some(function (branch) { return branch.id === 'branch-04'; }) ?
                 'branch-04' : availableBranches[0] && availableBranches[0].id)) :
-        assignedBranchId;
+        (assignedBranchIds.indexOf(selectedBranchId) !== -1 ?
+            selectedBranchId : assignedBranchIds[0]);
     if (!targetBranchId || !availableBranches.some(function (branch) {
         return branch.id === targetBranchId;
     })) {
@@ -1611,10 +1615,11 @@ async function loadBranchOptions(assignedBranchId) {
 
     branchFilter.value = targetBranchId;
     branchManagementSelect.value = targetBranchId;
-    branchFilter.disabled = !isGlobalMapAdmin;
+    branchFilter.disabled = !isGlobalMapAdmin && availableBranches.length < 2;
     openBranchManagementButton.hidden = !isGlobalMapAdmin;
-    branchViewNotice.hidden = isGlobalMapAdmin || !assignedBranchId;
+    branchViewNotice.hidden = isGlobalMapAdmin || !assignedBranchIds.length;
     updateBranchAdminControls();
+    updateBranchAccountAccessChoices([targetBranchId]);
     await switchMapBranch(targetBranchId);
     return true;
 }
@@ -1622,6 +1627,7 @@ async function loadBranchOptions(assignedBranchId) {
 function updateBranchSelectors() {
     branchFilter.replaceChildren();
     branchManagementSelect.replaceChildren();
+    branchAccountAccessChoices.replaceChildren();
     availableBranches.forEach(function (branch) {
         [branchFilter, branchManagementSelect].forEach(function (select) {
             var option = document.createElement('option');
@@ -1629,6 +1635,32 @@ function updateBranchSelectors() {
             option.textContent = branch.name;
             select.add(option);
         });
+
+        var label = document.createElement('label');
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'branchAccountAccess';
+        checkbox.value = branch.id;
+        var name = document.createElement('span');
+        name.textContent = branch.name;
+        label.append(checkbox, name);
+        branchAccountAccessChoices.append(label);
+    });
+}
+
+function updateBranchAccountAccessChoices(selectedBranchIds) {
+    var selectedIds = new Set(selectedBranchIds || []);
+    branchAccountAccessChoices.querySelectorAll('input[name="branchAccountAccess"]')
+        .forEach(function (checkbox) {
+            checkbox.checked = selectedIds.has(checkbox.value);
+        });
+}
+
+function getSelectedBranchAccountAccessIds() {
+    return Array.from(branchAccountAccessChoices.querySelectorAll(
+        'input[name="branchAccountAccess"]:checked'
+    )).map(function (checkbox) {
+        return checkbox.value;
     });
 }
 
@@ -1639,6 +1671,7 @@ function updateBranchAdminControls() {
     branchNameInput.value = branch ? branch.name : '';
     branchNameInput.disabled = !isGlobalMapAdmin || !branch;
     saveBranchNameButton.disabled = !isGlobalMapAdmin || !branch;
+    deleteBranchButton.disabled = !isGlobalMapAdmin || !branch || availableBranches.length <= 1;
     branchAccountEmailInput.disabled = !isGlobalMapAdmin || !branch;
     branchAccountPasswordInput.disabled = !isGlobalMapAdmin || !branch;
     saveBranchAccountButton.disabled = !isGlobalMapAdmin || !branch;
@@ -1723,7 +1756,7 @@ async function readLegacyLocalFeatureCollection() {
 async function applyAuthenticatedSession(session) {
     currentAuthUser = session && session.user || null;
     isGlobalMapAdmin = false;
-    var assignedBranchId = null;
+    var assignedBranchIds = [];
 
     if (currentAuthUser) {
         var roleResult = await supabaseClient.rpc('is_map_admin');
@@ -1731,13 +1764,19 @@ async function applyAuthenticatedSession(session) {
             throw roleResult.error;
         }
         isGlobalMapAdmin = roleResult.data === true;
-        var branchResult = await supabaseClient.rpc('get_my_map_branch_id');
-        if (branchResult.error) throw branchResult.error;
-        assignedBranchId = branchResult.data || null;
+        if (!isGlobalMapAdmin) {
+            var branchResult = await supabaseClient.from('map_branch_users')
+                .select('branch_id')
+                .eq('user_id', currentAuthUser.id);
+            if (branchResult.error) throw branchResult.error;
+            assignedBranchIds = (branchResult.data || []).map(function (assignment) {
+                return assignment.branch_id;
+            });
+        }
     }
 
     setMapEditorPermissions(isGlobalMapAdmin);
-    branchViewNotice.hidden = isGlobalMapAdmin || !assignedBranchId;
+    branchViewNotice.hidden = isGlobalMapAdmin || !assignedBranchIds.length;
     adminLogoutButton.hidden = !currentAuthUser;
 
     if (!currentAuthUser) {
@@ -1766,13 +1805,13 @@ async function applyAuthenticatedSession(session) {
         return;
     }
 
-    if (!isGlobalMapAdmin && !assignedBranchId) {
+    if (!isGlobalMapAdmin && !assignedBranchIds.length) {
         await loadBranchOptions(null);
         setMapEditorPermissions(false);
         return;
     }
 
-    await loadBranchOptions(assignedBranchId);
+    await loadBranchOptions(assignedBranchIds);
 }
 
 function showPasswordRecoveryForm(session) {
@@ -1920,7 +1959,8 @@ branchManagementSelect.addEventListener('change', function () {
 });
 
 branchFilter.addEventListener('change', function () {
-    if (!isGlobalMapAdmin || !branchFilter.value) return;
+    if (!branchFilter.value ||
+        !availableBranches.some(function (branch) { return branch.id === branchFilter.value; })) return;
     switchMapBranch(branchFilter.value).catch(function (error) {
         console.error('نەتوانرا نەخشەی لق بگۆڕدرێت:', error);
         storageStatus.textContent = 'نەتوانرا داتای لق باربکرێت؛ پەیوەندی و مۆڵەتەکان بپشکنە.';
@@ -1946,6 +1986,7 @@ createBranchButton.addEventListener('click', async function () {
         updateBranchSelectors();
         branchFilter.value = result.branch.id;
         branchManagementSelect.value = result.branch.id;
+        updateBranchAccountAccessChoices([result.branch.id]);
         newBranchNameInput.value = '';
         updateBranchAdminControls();
         await switchMapBranch(result.branch.id);
@@ -1989,40 +2030,90 @@ saveBranchNameButton.addEventListener('click', async function () {
     }
 });
 
+deleteBranchButton.addEventListener('click', async function () {
+    var branchId = branchManagementSelect.value;
+    var branch = availableBranches.find(function (item) {
+        return item.id === branchId;
+    });
+    if (!branch || availableBranches.length <= 1) return;
+    if (!window.confirm(
+        'دڵنیایت لقی «' + branch.name +
+        '» و هەموو ناوچە و سنوورەکانی بسڕیتەوە؟ ئەم کردارە ناگەڕێتەوە.'
+    )) return;
+
+    deleteBranchButton.disabled = true;
+    branchAdminStatus.textContent = 'لق و داتاکانی دەسڕدرێنەوە...';
+    try {
+        await manageBranch('delete-branch', {}, branchId);
+        var wasActiveBranch = selectedBranchId === branchId;
+        availableBranches = availableBranches.filter(function (item) {
+            return item.id !== branchId;
+        });
+        updateBranchSelectors();
+
+        var nextBranch = availableBranches.find(function (item) {
+            return item.id === selectedBranchId;
+        }) || availableBranches.find(function (item) {
+            return item.id === 'branch-04';
+        }) || availableBranches[0];
+        if (!nextBranch) throw new Error('هیچ لقێکی تر بۆ پیشاندان نەماوەتەوە.');
+
+        branchFilter.value = nextBranch.id;
+        branchManagementSelect.value = nextBranch.id;
+        updateBranchAccountAccessChoices([nextBranch.id]);
+        updateBranchAdminControls();
+        if (wasActiveBranch) await switchMapBranch(nextBranch.id);
+        branchAdminStatus.textContent =
+            'لقی «' + branch.name + '» و هەموو داتاکانی سڕدرانەوە. هەژمارە بینەرەکانیش مۆڵەتی ئەم لقەیان لێ وەرگیرا.';
+    } catch (error) {
+        console.error('نەتوانرا لق و داتاکانی بسڕدرێنەوە:', error);
+        branchAdminStatus.textContent = 'سڕینەوەی لق سەرکەوتوو نەبوو: ' +
+            String(error && error.message || error);
+    } finally {
+        deleteBranchButton.disabled = !isGlobalMapAdmin ||
+            !branchManagementSelect.value || availableBranches.length <= 1;
+    }
+});
+
 saveBranchAccountButton.addEventListener('click', async function () {
     var email = branchAccountEmailInput.value.trim();
     var password = branchAccountPasswordInput.value;
-    var branchId = branchManagementSelect.value;
+    var branchIds = getSelectedBranchAccountAccessIds();
     if (!email || password.length < 10) {
         branchAdminStatus.textContent = 'ئیمەیڵ بنووسە و وشەی نهێنییەکی لانیکەم ١٠ پیتی دابنێ.';
         return;
     }
-    if (!branchId) {
-        branchAdminStatus.textContent = 'لقێک هەڵبژێرە بۆ مۆڵەتی بینین.';
+    if (!branchIds.length) {
+        branchAdminStatus.textContent = 'لانیکەم یەک لق هەڵبژێرە بۆ مۆڵەتی بینین.';
         return;
     }
 
     saveBranchAccountButton.disabled = true;
-    var branch = availableBranches.find(function (item) {
-        return item.id === branchId;
-    });
-    branchAdminStatus.textContent = 'هەژماری بینەر بۆ لقی «' +
-        (branch ? branch.name : '') + '» بە شێوەی پارێزراو دروست/نوێ دەکرێتەوە...';
+    var branchNames = branchIds.map(function (branchId) {
+        var branch = availableBranches.find(function (item) {
+            return item.id === branchId;
+        });
+        return branch ? branch.name : '';
+    }).filter(Boolean);
+    branchAdminStatus.textContent = 'هەژماری بینەر بۆ ئەم لقانە بە شێوەی پارێزراو دروست/نوێ دەکرێتەوە: ' +
+        branchNames.join('، ');
     try {
         await manageBranch('set-branch-account', {
             email: email,
-            password: password
-        }, branchId);
+            password: password,
+            branchIds: branchIds
+        });
         branchAccountPasswordInput.value = '';
         branchAdminStatus.textContent =
-            'هەژماری بینینی «' + (branch ? branch.name : 'لق') +
-            '» ئامادەیە. ئیمەیڵ و وشەی نهێنی بە ڕێگایەکی تایبەتی بگەیەنە بەکارهێنەری ئەم لقە.';
+            'هەژماری بینینی ' + branchNames.join('، ') +
+            ' ئامادەیە. ئیمەیڵ و وشەی نهێنی بە ڕێگایەکی تایبەتی بگەیەنە بەکارهێنەر.';
     } catch (error) {
         console.error('نەتوانرا هەژماری لق دروست بکرێت:', error);
         branchAdminStatus.textContent = 'دروستکردنی هەژمار سەرکەوتوو نەبوو: ' +
             String(error && error.message || error);
     } finally {
-        saveBranchAccountButton.disabled = !isGlobalMapAdmin || !branchManagementSelect.value;
+        saveBranchAccountButton.disabled = !isGlobalMapAdmin ||
+            !branchManagementSelect.value;
     }
 });
 

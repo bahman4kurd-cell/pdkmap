@@ -1,6 +1,6 @@
 # Supabase setup
 
-The map supports a growing number of isolated branches. Each branch has its own region-name list and GeoJSON boundaries. The main administrator can create branches, draw and edit their regions, rename branches, and create or reset one read-only login account per branch. A branch account can only view its assigned branch.
+The map supports a growing number of isolated branches. Each branch has its own region-name list and GeoJSON boundaries. The main administrator can create, rename, and delete branches; draw, edit, and delete their regions; and create or reset read-only viewer accounts. Each viewer can be assigned one or more branches and can only view the branches explicitly selected for that account.
 
 ## Initial setup or upgrade
 
@@ -26,14 +26,14 @@ The map supports a growing number of isolated branches. Each branch has its own 
 5. In Authentication > URL Configuration, set the deployed site's URL and add local development URLs to the redirect allow list.
 6. Deploy `index.html`, `main.js`, `style.css`, `supabase-config.js`, and the `supabase/` function/config files to the appropriate hosts. The function itself must be deployed to Supabase, not served as a static file by Render.
 
-For an existing deployment, run the updated SQL migration once, deploy the Edge Function, and redeploy the site. The initial `branch-04` import uses `ON CONFLICT DO NOTHING`, so re-running the migration will not overwrite branch data. The migration removes the former 25-branch limit and replaces branch-editor write policies with main-admin-only write policies.
+For an existing deployment, run `supabase-migration-multi-branch-access.sql` in the Supabase SQL Editor, deploy the Edge Function, and redeploy the site. This migration changes branch memberships to many-to-many and adds protected RPCs for assigning viewer access and deleting branches. It is safe to re-run. The initial `branch-04` import uses `ON CONFLICT DO NOTHING`, so re-running the full schema will not overwrite branch data. The schema removes the former 25-branch limit and keeps map writes main-admin-only.
 
 ## Create branch logins and draw region boundaries
 
 1. Sign in with the main administrator account. Open **بەڕێوەبردنی لقەکان** and create a branch with its own name. The initial branches `لق ١` through `لق ٢٥` are available and can be renamed there; new branches can be added whenever needed.
-2. Select the branch in the management panel, enter a unique email and a password of at least 10 characters, and create its viewer account. The selected branch is shown in the confirmation. Repeating this action for that branch resets its existing credentials. Share the login details privately.
-3. Select the branch in the map selector. Add region names and draw their polygons using the map tools. Names and boundaries are saved only in the selected branch. The map opens to the whole of Iraq; switching the branch loads only that branch's map. Existing map data is assigned to branch 4.
-4. A branch account can only view its assigned branch; only the main administrator can draw or edit branch boundaries and regions. Row-level security enforces this restriction in the database, not just in the interface.
+2. To create a viewer account, enter its email and a password of at least 10 characters, then check every branch it may view. The account's branch choices replace any previous assignments when credentials are reset. The confirmation lists the selected branches. Share the login details privately.
+3. Select a branch in the map selector. Add region names and draw, edit, or delete boundaries with the map tools. Names and boundaries are saved only in the selected branch. A viewer assigned to multiple branches can switch among those branches, but remains read-only. The map opens to the whole of Iraq; existing map data is assigned to branch 4.
+4. The main administrator can rename branches and delete an entire branch and its map data from the branch-management panel. Deletion is confirmed, cannot remove the final remaining branch, and removes that branch's viewer assignments. Auth accounts with no remaining branch assignments are left in Supabase but cannot access map data. Row-level security enforces viewer access and read-only permissions in the database.
 
 Branch accounts are created as confirmed Supabase Auth users by the Edge Function. It verifies the caller's session and main-admin role before using the server-only service key. Email/password values are sent over HTTPS and are not stored in the app or map database.
 
