@@ -785,6 +785,7 @@ function stopGlobeRotation() {
 function startGlobeRotation() {
     if (!map3D || currentMapMode !== '3d' || selectedBranchId ||
         !map3D.isStyleLoaded() || globeRotationFrame !== null ||
+        document.hidden ||
         window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     function rotateGlobe(timestamp) {
@@ -803,6 +804,14 @@ function startGlobeRotation() {
 
     globeRotationFrame = requestAnimationFrame(rotateGlobe);
 }
+
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        stopGlobeRotation();
+    } else {
+        startGlobeRotation();
+    }
+});
 
 function returnToGlobe() {
     pendingBranchFocus = false;
