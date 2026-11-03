@@ -118,6 +118,11 @@ var createBranchButton = document.getElementById('createBranchButton');
 var branchNameInput = document.getElementById('branchNameInput');
 var saveBranchNameButton = document.getElementById('saveBranchNameButton');
 var deleteBranchButton = document.getElementById('deleteBranchButton');
+var branchDeleteConfirmation = document.getElementById('branchDeleteConfirmation');
+var branchDeleteMessage = document.getElementById('branchDeleteMessage');
+var deleteBranchNameConfirm = document.getElementById('deleteBranchNameConfirm');
+var confirmDeleteBranchButton = document.getElementById('confirmDeleteBranchButton');
+var cancelDeleteBranchButton = document.getElementById('cancelDeleteBranchButton');
 var branchAccountEmailInput = document.getElementById('branchAccountEmail');
 var branchAccountPasswordInput = document.getElementById('branchAccountPassword');
 var branchAccountAccessChoices = document.getElementById('branchAccountAccessChoices');
@@ -2036,12 +2041,40 @@ deleteBranchButton.addEventListener('click', async function () {
         return item.id === branchId;
     });
     if (!branch || availableBranches.length <= 1) return;
-    if (!window.confirm(
-        'دڵنیایت لقی «' + branch.name +
-        '» و هەموو ناوچە و سنوورەکانی بسڕیتەوە؟ ئەم کردارە ناگەڕێتەوە.'
-    )) return;
+    branchDeleteMessage.textContent =
+        'لقی «' + branch.name +
+        '» و هەموو ناوچە و سنوورەکانی دەسڕدرێنەوە. ئەم کردارە ناگەڕێتەوە.';
+    deleteBranchNameConfirm.value = '';
+    confirmDeleteBranchButton.disabled = true;
+    branchDeleteConfirmation.hidden = false;
+    branchManagementSelect.disabled = true;
+    deleteBranchNameConfirm.focus();
+});
+
+deleteBranchNameConfirm.addEventListener('input', function () {
+    var branch = availableBranches.find(function (item) {
+        return item.id === branchManagementSelect.value;
+    });
+    confirmDeleteBranchButton.disabled = !branch ||
+        deleteBranchNameConfirm.value.trim() !== branch.name;
+});
+
+cancelDeleteBranchButton.addEventListener('click', function () {
+    branchDeleteConfirmation.hidden = true;
+    deleteBranchNameConfirm.value = '';
+    updateBranchAdminControls();
+});
+
+confirmDeleteBranchButton.addEventListener('click', async function () {
+    var branchId = branchManagementSelect.value;
+    var branch = availableBranches.find(function (item) {
+        return item.id === branchId;
+    });
+    if (!branch || availableBranches.length <= 1 ||
+        deleteBranchNameConfirm.value.trim() !== branch.name) return;
 
     deleteBranchButton.disabled = true;
+    confirmDeleteBranchButton.disabled = true;
     branchAdminStatus.textContent = 'لق و داتاکانی دەسڕدرێنەوە...';
     try {
         await manageBranch('delete-branch', {}, branchId);
@@ -2061,6 +2094,8 @@ deleteBranchButton.addEventListener('click', async function () {
         branchFilter.value = nextBranch.id;
         branchManagementSelect.value = nextBranch.id;
         updateBranchAccountAccessChoices([nextBranch.id]);
+        branchDeleteConfirmation.hidden = true;
+        deleteBranchNameConfirm.value = '';
         updateBranchAdminControls();
         if (wasActiveBranch) await switchMapBranch(nextBranch.id);
         branchAdminStatus.textContent =
@@ -2072,6 +2107,11 @@ deleteBranchButton.addEventListener('click', async function () {
     } finally {
         deleteBranchButton.disabled = !isGlobalMapAdmin ||
             !branchManagementSelect.value || availableBranches.length <= 1;
+        if (!branchDeleteConfirmation.hidden) {
+            branchManagementSelect.disabled = true;
+            confirmDeleteBranchButton.disabled =
+                deleteBranchNameConfirm.value.trim() !== branch.name;
+        }
     }
 });
 

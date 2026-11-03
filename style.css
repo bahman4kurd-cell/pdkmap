@@ -482,6 +482,31 @@ body, html {
     background: #b91c1c;
 }
 
+.branch-delete-confirmation {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    background: #fef2f2;
+}
+
+.branch-delete-confirmation[hidden] {
+    display: none;
+}
+
+.branch-delete-confirmation legend,
+.branch-delete-confirmation p {
+    color: #991b1b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.branch-delete-confirmation p {
+    margin: 0;
+}
+
 .branch-access-choices {
     display: grid;
     gap: 4px;

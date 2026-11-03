@@ -112,6 +112,14 @@
                 <input type="text" id="branchNameInput" maxlength="80" autocomplete="off">
                 <button type="button" id="saveBranchNameButton">خەزنکردنی ناوی لق</button>
                 <button type="button" id="deleteBranchButton" class="danger-action">سڕینەوەی ئەم لقە و هەموو داتاکەی</button>
+                <fieldset id="branchDeleteConfirmation" class="branch-delete-confirmation" hidden>
+                    <legend>دڵنیایی سڕینەوە</legend>
+                    <p id="branchDeleteMessage"></p>
+                    <label for="deleteBranchNameConfirm">بۆ پشتڕاستکردنەوە ناوی لقەکە بنووسە</label>
+                    <input type="text" id="deleteBranchNameConfirm" autocomplete="off">
+                    <button type="button" id="confirmDeleteBranchButton" class="danger-action" disabled>پشتڕاستکردنەوەی سڕینەوە</button>
+                    <button type="button" id="cancelDeleteBranchButton">پاشگەزبوونەوە</button>
+                </fieldset>
                 <label for="branchAccountEmail">ئیمەیڵی هەژماری بینەر</label>
                 <input type="email" id="branchAccountEmail" autocomplete="off">
                 <label for="branchAccountPassword">وشەی نهێنی (کەمترین ١٠ پیت)</label>
