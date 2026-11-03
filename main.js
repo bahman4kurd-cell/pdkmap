@@ -1695,7 +1695,12 @@ function enableRegionSelection(layer) {
 
 function selectRegion(layer) {
     selectedRegionLayer = layer;
-    if (layer) setSelectedLabelLayer(layer);
+    if (layer) {
+        isGlobeOverview = false;
+        pendingGlobeReturn = false;
+        stopGlobeRotation();
+        setSelectedLabelLayer(layer);
+    }
     applyRegionStyleButton.disabled = !isMapAdmin || !layer;
     updateSubRegionButton();
     refreshRegionInfoButton.disabled = !layer;
