@@ -173,6 +173,8 @@ var map3D = null;
 var globeRotationFrame = null;
 var globeRotationTimestamp = null;
 var pendingBranchFocus = false;
+var pendingBranchFocusDuration = null;
+var branchFocusIdleListener = null;
 var map3DRegionLabels = new Map();
 var map3DSelectionOutline = null;
 var map3DSelectionFillPath = null;
@@ -762,9 +764,11 @@ function initialize3DMap() {
             update3DFocusBlurOverlay();
         });
         if (pendingBranchFocus && selectedBranchId) {
+            var duration = pendingBranchFocusDuration || 5600;
             pendingBranchFocus = false;
-            focusMapToBranch(5600);
-        } else {
+            pendingBranchFocusDuration = null;
+            focusMapToBranch(duration);
+        } else if (!selectedBranchId) {
             startGlobeRotation();
         }
     });
@@ -802,6 +806,7 @@ function startGlobeRotation() {
 
 function returnToGlobe() {
     pendingBranchFocus = false;
+    pendingBranchFocusDuration = null;
     stopGlobeRotation();
     if (currentMapMode !== '3d' || !map3D || !map3D.isStyleLoaded()) return;
 
@@ -836,8 +841,22 @@ function focusMapToBranch(duration) {
     if (currentMapMode === '3d') {
         if (!map3D || !map3D.isStyleLoaded()) {
             pendingBranchFocus = true;
+            pendingBranchFocusDuration = duration;
+            if (map3D && !branchFocusIdleListener) {
+                branchFocusIdleListener = function () {
+                    branchFocusIdleListener = null;
+                    if (!pendingBranchFocus || !selectedBranchId) return;
+                    var queuedDuration = pendingBranchFocusDuration || 5600;
+                    pendingBranchFocus = false;
+                    pendingBranchFocusDuration = null;
+                    focusMapToBranch(queuedDuration);
+                };
+                map3D.once('idle', branchFocusIdleListener);
+            }
             return;
         }
+        pendingBranchFocus = false;
+        pendingBranchFocusDuration = null;
         var leftPadding = Math.min(
             300,
             Math.max(56, map3D.getContainer().clientWidth * 0.42)
@@ -1812,6 +1831,7 @@ async function switchMapBranch(branchId) {
 
     stopGlobeRotation();
     pendingBranchFocus = false;
+    pendingBranchFocusDuration = null;
     selectedBranchId = branchId;
     branchFilter.value = branchId;
     unsubscribeFromCloudMap();
