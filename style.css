@@ -750,7 +750,7 @@ body, html {
 
 .view-mode {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
     gap: 4px;
 }
 
@@ -772,7 +772,8 @@ body, html {
     min-width: 38px;
 }
 
-#satelliteMapButton svg {
+#satelliteMapButton svg,
+#globeOverviewButton svg {
     width: 19px;
     height: 19px;
     fill: none;
@@ -780,6 +781,12 @@ body, html {
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
+}
+
+.style-panel .view-mode button#globeOverviewButton {
+    display: grid;
+    place-items: center;
+    min-width: 38px;
 }
 
 .visually-hidden {

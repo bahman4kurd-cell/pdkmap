@@ -184,6 +184,7 @@ var applyNamedPointColorButton = document.getElementById('applyNamedPointColor')
 var defaultNamedPointColor = '#e11d48';
 var map2DButton = document.getElementById('map2DButton');
 var map3DButton = document.getElementById('map3DButton');
+var globeOverviewButton = document.getElementById('globeOverviewButton');
 var satelliteModeButton = document.getElementById('satelliteMapButton');
 var addNamedPointButton = document.getElementById('addNamedPointButton');
 var map3DContainer = document.getElementById('map3d');
@@ -222,6 +223,8 @@ var isMapAdmin = false;
 var isGlobalMapAdmin = false;
 var currentAuthUser = null;
 var selectedBranchId = null;
+var isGlobeOverview = true;
+var pendingGlobeReturn = false;
 var availableBranches = [];
 var branchLoadToken = 0;
 var branchRegionNames = [];
@@ -784,11 +787,13 @@ function initialize3DMap() {
             update3DFocusBlurOverlay();
         });
         if (pendingBranchFocus && selectedBranchId) {
-            var duration = pendingBranchFocusDuration || 5600;
+            var duration = pendingBranchFocusDuration || 6500;
             pendingBranchFocus = false;
             pendingBranchFocusDuration = null;
             focusMapToBranch(duration);
-        } else if (!selectedBranchId) {
+        } else if (pendingGlobeReturn) {
+            animateGlobeReturn(2400);
+        } else if (isGlobeOverview || !selectedBranchId) {
             startGlobeRotation();
         }
     });
@@ -803,13 +808,13 @@ function stopGlobeRotation() {
 }
 
 function startGlobeRotation() {
-    if (!map3D || currentMapMode !== '3d' || selectedBranchId ||
+    if (!map3D || currentMapMode !== '3d' || !isGlobeOverview ||
         !map3D.isStyleLoaded() || globeRotationFrame !== null ||
         document.hidden ||
         window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     function rotateGlobe(timestamp) {
-        if (currentMapMode !== '3d' || selectedBranchId || !map3D) {
+        if (currentMapMode !== '3d' || !isGlobeOverview || !map3D) {
             stopGlobeRotation();
             return;
         }
@@ -833,21 +838,39 @@ document.addEventListener('visibilitychange', function () {
     }
 });
 
-function returnToGlobe() {
-    pendingBranchFocus = false;
-    pendingBranchFocusDuration = null;
-    stopGlobeRotation();
-    if (currentMapMode !== '3d' || !map3D || !map3D.isStyleLoaded()) return;
-
+function animateGlobeReturn(duration) {
+    if (!map3D || !map3D.isStyleLoaded()) {
+        pendingGlobeReturn = true;
+        return;
+    }
+    pendingGlobeReturn = false;
     map3D.once('moveend', startGlobeRotation);
     map3D.flyTo({
         center: [5, 20],
         zoom: 1.6,
         pitch: 0,
         bearing: 0,
-        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1800,
+        duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : duration,
         essential: true
     });
+}
+
+function returnToGlobe() {
+    isGlobeOverview = true;
+    pendingBranchFocus = false;
+    pendingBranchFocusDuration = null;
+    pendingGlobeReturn = true;
+    stopGlobeRotation();
+    regionFilter.value = '';
+    selectRegion(null);
+    showSelectedRegion('');
+
+    if (currentMapMode !== '3d') {
+        setMapMode('3d');
+        return;
+    }
+    if (!map3D) initialize3DMap();
+    animateGlobeReturn(2400);
 }
 
 function getBranchBounds() {
@@ -875,7 +898,7 @@ function focusMapToBranch(duration) {
                 branchFocusIdleListener = function () {
                     branchFocusIdleListener = null;
                     if (!pendingBranchFocus || !selectedBranchId) return;
-                    var queuedDuration = pendingBranchFocusDuration || 5600;
+                    var queuedDuration = pendingBranchFocusDuration || 6500;
                     pendingBranchFocus = false;
                     pendingBranchFocusDuration = null;
                     focusMapToBranch(queuedDuration);
@@ -937,6 +960,9 @@ function setMapMode(mode) {
             sync3DRegions();
             if (selectedRegionLayer) {
                 focusRegionView(selectedRegionLayer);
+            } else if (isGlobeOverview) {
+                if (pendingGlobeReturn) animateGlobeReturn(2400);
+                else startGlobeRotation();
             } else if (selectedBranchId) {
                 focusMapToBranch(900);
             } else {
@@ -950,6 +976,8 @@ function setMapMode(mode) {
         requestAnimationFrame(function () {
             if (selectedRegionLayer) {
                 focusRegionView(selectedRegionLayer);
+            } else if (isGlobeOverview) {
+                fitMapToIraq(0);
             } else if (selectedBranchId) {
                 focusMapToBranch(900);
             } else {
@@ -968,6 +996,7 @@ map3DButton.addEventListener('click', function () {
 satelliteModeButton.addEventListener('click', function () {
     setMapMode('satellite');
 });
+globeOverviewButton.addEventListener('click', returnToGlobe);
 
 function addRegionFilterOption(regionName) {
     var canonicalName = normalizeRegionName(regionName);
@@ -2078,7 +2107,7 @@ async function switchMapBranch(branchId) {
     migrateLocalDataButton.hidden = true;
     var loaded = await loadCloudMap(branchId, loadToken);
     if (loaded && loadToken === branchLoadToken) {
-        focusMapToBranch(5600);
+        focusMapToBranch(6500);
         subscribeToCloudMap(branchId);
     }
 }
