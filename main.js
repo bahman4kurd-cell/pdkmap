@@ -56,7 +56,16 @@ function syncLeafletBaseLayers() {
 
 syncLeafletBaseLayers();
 streetMapToggle.addEventListener('change', syncLeafletBaseLayers);
-map.on('move zoom resize', updateMapFocusBlurOverlay);
+function syncMapLabelScale(zoom, container) {
+    var scale = Math.max(0.84, Math.min(1.12, 0.84 + (zoom - 8) * 0.025));
+    container.style.setProperty('--map-label-scale', String(scale));
+}
+
+map.on('move zoom resize', function () {
+    updateMapFocusBlurOverlay();
+    syncMapLabelScale(map.getZoom(), map.getContainer());
+});
+syncMapLabelScale(map.getZoom(), map.getContainer());
 
 var outsideMaskPane = map.createPane('outsideMapMask');
 outsideMaskPane.style.zIndex = 680;
@@ -537,7 +546,11 @@ function sync3DRegionLabels() {
         }
 
         var regionLayer = findRegionLayerById(properties.regionId);
-        label.getElement().hidden = false;
+        var isSelectedLabel = Boolean(selectedLabelLayer &&
+            String(selectedLabelLayer._leaflet_id) === labelId);
+        label.getElement().hidden = !isNamedPoint && !isSelectedLabel;
+        label.getElement().classList.toggle('is-label-selected',
+            isNamedPoint && isSelectedLabel);
         var isForeground = Boolean(!isNamedPoint && selectedRegion &&
             isRegionRelatedToSelection(regionLayer, selectedRegion));
         label.getElement().classList.toggle('region-focus-background',
@@ -940,6 +953,10 @@ function initialize3DMap() {
             sync3DSelectionOutline();
             update3DFocusBlurOverlay();
         });
+        map3D.on('zoom', function () {
+            syncMapLabelScale(map3D.getZoom(), map3DContainer);
+        });
+        syncMapLabelScale(map3D.getZoom(), map3DContainer);
         if (pendingBranchFocus && selectedBranchId) {
             var duration = pendingBranchFocusDuration || 6500;
             pendingBranchFocus = false;
@@ -1593,7 +1610,8 @@ function showSelectedRegion(regionName) {
             layer._path.classList.toggle('region-selected-glow', layer === selectedLayer);
         }
         if (layer.getTooltip()) {
-            layer.openTooltip();
+            if (layer === selectedLabelLayer) layer.openTooltip();
+            else layer.closeTooltip();
             var tooltipElement = layer.getTooltip().getElement();
             if (tooltipElement) {
                 tooltipElement.classList.toggle('region-focus-background', isFocused && !isForeground);
@@ -1846,7 +1864,7 @@ function addRegionLabel(layer) {
     var label = document.createElement('span');
     label.textContent = layer.regionName;
     layer.bindTooltip(label, {
-        permanent: true,
+        permanent: false,
         direction: 'center',
         className: 'region-label',
         opacity: 1,
@@ -1855,14 +1873,29 @@ function addRegionLabel(layer) {
 }
 
 function setSelectedLabelLayer(layer) {
+    function setNamedPointLabelVisibility(pointLayer, isVisible) {
+        if (!pointLayer || pointLayer.kind !== 'named-point') return;
+        var markerElement = pointLayer.getElement();
+        if (!markerElement) return;
+        var content = markerElement.querySelector('.named-point-content') ||
+            markerElement.querySelector('.map3d-named-point');
+        if (content) content.classList.toggle('is-label-selected', isVisible);
+    }
+
+    if (selectedLabelLayer && selectedLabelLayer !== layer &&
+        selectedLabelLayer.kind === 'named-point') {
+        setNamedPointLabelVisibility(selectedLabelLayer, false);
+    }
     selectedLabelLayer = layer;
     editNamedLabelButton.disabled = !isMapAdmin || !layer;
     var isNamedPoint = Boolean(layer && layer.kind === 'named-point');
+    if (isNamedPoint) setNamedPointLabelVisibility(layer, true);
     namedPointColorInput.disabled = !isMapAdmin || !isNamedPoint;
     applyNamedPointColorButton.disabled = !isMapAdmin || !isNamedPoint;
     if (isNamedPoint) {
         namedPointColorInput.value = normalizeNamedPointColor(layer.pointColor);
     }
+    sync3DRegionLabels();
 }
 
 function enableRegionSelection(layer) {
@@ -1883,6 +1916,8 @@ function selectRegion(layer) {
         pendingGlobeReturn = false;
         stopGlobeRotation();
         setSelectedLabelLayer(layer);
+    } else {
+        setSelectedLabelLayer(null);
     }
     applyRegionStyleButton.disabled = !isMapAdmin || !layer;
     updateSubRegionButton();
