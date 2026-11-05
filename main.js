@@ -14,10 +14,22 @@ var map = L.map('map', {
 var mapFocusBlurOverlay = createMapFocusBlurOverlay(map.getContainer());
 var map3DFocusBlurOverlay = null;
 
-var streetMapLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-});
+var streetMapLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    {
+        maxZoom: 19,
+        className: 'digital-street-base-tile',
+        attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS user community'
+    }
+);
+var streetLabelsLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    {
+        maxZoom: 19,
+        className: 'digital-street-label-tile',
+        attribution: 'Labels &copy; Esri'
+    }
+);
 var satelliteMapLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {
@@ -38,12 +50,13 @@ var satelliteMapButton = document.getElementById('satelliteMapButton');
 var currentMapMode = '3d';
 
 function syncLeafletBaseLayers() {
-    [streetMapLayer, satelliteMapLayer, satelliteLabelsLayer].forEach(function (layer) {
+    [streetMapLayer, streetLabelsLayer, satelliteMapLayer, satelliteLabelsLayer].forEach(function (layer) {
         map.removeLayer(layer);
     });
 
     if (currentMapMode === '2d' && streetMapToggle.checked) {
         streetMapLayer.addTo(map);
+        streetLabelsLayer.addTo(map);
     } else if (currentMapMode === 'satellite') {
         satelliteMapLayer.addTo(map);
         if (streetMapToggle.checked) satelliteLabelsLayer.addTo(map);
@@ -82,7 +95,7 @@ function fitMapToIraq(duration) {
 var maskStyle = {
     pane: 'outsideMapMask',
     stroke: false,
-    fillColor: '#ffffff',
+    fillColor: '#030916',
     fillOpacity: 1,
     interactive: false
 };
@@ -647,6 +660,143 @@ function selectRegionFrom3D(feature, event) {
         .addTo(map3D);
 }
 
+function addDigitalGlobeGrid() {
+    var features = [];
+    for (var longitude = -180; longitude <= 180; longitude += 15) {
+        var meridian = [];
+        for (var latitude = -80; latitude <= 80; latitude += 2) {
+            meridian.push([longitude, latitude]);
+        }
+        features.push({
+            type: 'Feature',
+            properties: { kind: 'longitude' },
+            geometry: { type: 'LineString', coordinates: meridian }
+        });
+    }
+    for (var parallel = -75; parallel <= 75; parallel += 15) {
+        var latitudeLine = [];
+        for (var longitudePoint = -180; longitudePoint <= 180; longitudePoint += 2) {
+            latitudeLine.push([longitudePoint, parallel]);
+        }
+        features.push({
+            type: 'Feature',
+            properties: { kind: 'latitude' },
+            geometry: { type: 'LineString', coordinates: latitudeLine }
+        });
+    }
+    return { type: 'FeatureCollection', features: features };
+}
+
+function applyDigitalMapStyle() {
+    var palette = {
+        background: '#030916',
+        landDetail: '#0b263c',
+        water: '#041326',
+        cyan: '#16d9f5',
+        softCyan: '#147f9f',
+        magenta: '#ff45ca',
+        text: '#c4f4ff',
+        halo: '#06101e'
+    };
+
+    map3D.setPaintProperty('background', 'background-color', palette.background);
+    map3D.getStyle().layers.forEach(function (layer) {
+        if (layer.type === 'raster') {
+            map3D.setPaintProperty(layer.id, 'raster-saturation', -0.7);
+            map3D.setPaintProperty(layer.id, 'raster-contrast', 0.25);
+            map3D.setPaintProperty(layer.id, 'raster-brightness-min', 0.02);
+            map3D.setPaintProperty(layer.id, 'raster-brightness-max', 0.38);
+            map3D.setPaintProperty(layer.id, 'raster-hue-rotate', 195);
+            return;
+        }
+
+        if (layer.type === 'fill') {
+            var fillColor = layer.id === 'water' ? palette.water :
+                layer.id === 'park' ? '#082f34' :
+                    layer.id === 'landcover_ice' ? '#17394c' : palette.landDetail;
+            map3D.setPaintProperty(layer.id, 'fill-color', fillColor);
+            if (layer.id === 'park') {
+                map3D.setPaintProperty(layer.id, 'fill-opacity', 0.42);
+                map3D.setPaintProperty(layer.id, 'fill-outline-color', '#147e85');
+            } else if (layer.id === 'building') {
+                map3D.setPaintProperty(layer.id, 'fill-color', '#12334d');
+                map3D.setPaintProperty(layer.id, 'fill-outline-color', '#17627d');
+            } else if (layer.id.indexOf('landcover_') === 0 ||
+                layer.id.indexOf('landuse_') === 0) {
+                map3D.setPaintProperty(layer.id, 'fill-opacity', 0.38);
+            }
+            return;
+        }
+
+        if (layer.type === 'line') {
+            var lineColor = layer.id.indexOf('boundary_') === 0 ? '#14516c' :
+                layer.id.indexOf('waterway_') === 0 ? '#0d7494' :
+                    layer.id.indexOf('park_') === 0 ? '#16827c' :
+                        layer.id.indexOf('_casing') !== -1 ? '#071525' :
+                            layer.id.indexOf('rail') !== -1 ? '#27627b' :
+                                palette.softCyan;
+            map3D.setPaintProperty(layer.id, 'line-color', lineColor);
+            if (layer.id.indexOf('road_') === 0 ||
+                layer.id.indexOf('bridge_') === 0 ||
+                layer.id.indexOf('tunnel_') === 0) {
+                map3D.setPaintProperty(layer.id, 'line-opacity',
+                    layer.id.indexOf('_casing') !== -1 ? 0.75 : 0.5);
+            }
+            return;
+        }
+
+        if (layer.type === 'fill-extrusion' && layer.id === 'building-3d') {
+            map3D.setPaintProperty(layer.id, 'fill-extrusion-color', '#0d5272');
+            map3D.setPaintProperty(layer.id, 'fill-extrusion-opacity', 0.68);
+            return;
+        }
+
+        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+            map3D.setPaintProperty(layer.id, 'text-color',
+                layer.id.indexOf('water_') === 0 ? '#66cde5' : palette.text);
+            map3D.setPaintProperty(layer.id, 'text-halo-color', palette.halo);
+            map3D.setPaintProperty(layer.id, 'text-halo-width', 1.3);
+            map3D.setPaintProperty(layer.id, 'text-halo-blur', 0.4);
+        }
+    });
+
+    map3D.addSource('digital-globe-grid', {
+        type: 'geojson',
+        data: addDigitalGlobeGrid()
+    });
+    var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
+        return layer.type === 'symbol';
+    });
+    var firstSymbolLayerId = firstSymbolLayer && firstSymbolLayer.id;
+    map3D.addLayer({
+        id: 'digital-globe-grid-glow',
+        type: 'line',
+        source: 'digital-globe-grid',
+        paint: {
+            'line-color': palette.magenta,
+            'line-width': 1.8,
+            'line-blur': 2,
+            'line-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                0, 0.16, 3, 0.08, 6, 0
+            ]
+        }
+    }, firstSymbolLayerId);
+    map3D.addLayer({
+        id: 'digital-globe-grid-lines',
+        type: 'line',
+        source: 'digital-globe-grid',
+        paint: {
+            'line-color': palette.cyan,
+            'line-width': 0.55,
+            'line-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                0, 0.62, 3, 0.3, 6, 0.04, 8, 0
+            ]
+        }
+    }, firstSymbolLayerId);
+}
+
 function initialize3DMap() {
     if (map3D) return;
 
@@ -668,12 +818,7 @@ function initialize3DMap() {
 
     map3D.on('load', function () {
         map3D.setProjection({ type: 'globe' });
-        map3D.setFog({
-            color: 'rgb(12, 24, 43)',
-            'high-color': 'rgb(35, 92, 140)',
-            'space-color': 'rgb(3, 8, 20)',
-            'star-intensity': 0.25
-        });
+        applyDigitalMapStyle();
         var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
             return layer.type === 'symbol';
         });
@@ -738,9 +883,9 @@ function initialize3DMap() {
             type: 'line',
             source: 'committee-regions',
             paint: {
-                'line-color': '#8ceeff',
+                'line-color': '#ff45ca',
                 'line-width': 5,
-                'line-blur': 4,
+                'line-blur': 5,
                 'line-opacity': 1
             }
         }, firstSymbolLayerId);
@@ -749,8 +894,9 @@ function initialize3DMap() {
             type: 'line',
             source: 'committee-regions',
             paint: {
-                'line-color': '#8ceeff',
-                'line-width': 4
+                'line-color': '#14dcf5',
+                'line-width': 3.2,
+                'line-blur': 0.4
             }
         }, firstSymbolLayerId);
         if (map3D.getLayer('building-3d')) {

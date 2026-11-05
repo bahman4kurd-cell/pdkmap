@@ -998,6 +998,270 @@ body, html {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+.digital-map-theme {
+    color-scheme: dark;
+    background: #030916;
+    color: #d7f6ff;
+}
+
+.digital-map-theme #map,
+.digital-map-theme #map3d {
+    background:
+        radial-gradient(ellipse at 50% 48%, rgba(12, 72, 111, 0.3), transparent 58%),
+        #030916;
+}
+
+.digital-map-theme .leaflet-layer.digital-street-base-tile img {
+    filter: brightness(0.58) contrast(1.1) saturate(0.65);
+}
+
+.digital-map-theme .style-panel,
+.digital-map-theme .boundary-stats-panel {
+    border: 1px solid rgba(38, 207, 240, 0.36);
+    background: rgba(4, 15, 31, 0.88);
+    color: #c9efff;
+    box-shadow:
+        0 0 24px rgba(0, 194, 255, 0.1),
+        0 14px 42px rgba(0, 0, 0, 0.42),
+        inset 0 1px rgba(199, 242, 255, 0.06);
+    backdrop-filter: blur(16px) saturate(1.25);
+}
+
+.digital-map-theme .style-panel h3,
+.digital-map-theme .style-panel h4,
+.digital-map-theme .style-panel label,
+.digital-map-theme .style-panel #opacityValue,
+.digital-map-theme .boundary-stats-panel h2,
+.digital-map-theme .boundary-stats-scope,
+.digital-map-theme .boundary-stats-list dd,
+.digital-map-theme .population-editor label {
+    color: #d6f5ff;
+}
+
+.digital-map-theme .style-panel input[type="text"],
+.digital-map-theme .style-panel input[type="email"],
+.digital-map-theme .style-panel input[type="password"],
+.digital-map-theme .style-panel select,
+.digital-map-theme .branch-management-section input,
+.digital-map-theme .branch-management-section select,
+.digital-map-theme .population-editor input,
+.digital-map-theme .point-dialog input {
+    border-color: rgba(69, 184, 218, 0.4);
+    background: rgba(2, 10, 23, 0.9);
+    color: #e2f8ff;
+}
+
+.digital-map-theme .style-panel input:disabled,
+.digital-map-theme .population-editor input:disabled {
+    background: rgba(29, 48, 68, 0.78);
+    color: #87a7ba;
+}
+
+.digital-map-theme .style-panel button,
+.digital-map-theme .boundary-stats-panel > button,
+.digital-map-theme .boundary-stats-mode button,
+.digital-map-theme .population-editor button,
+.digital-map-theme .branch-management-section button,
+.digital-map-theme .point-dialog-actions button,
+.digital-map-theme .map-access-message button {
+    border: 1px solid rgba(75, 225, 255, 0.34);
+    background: linear-gradient(135deg, #087d9a, #075b83 58%, #56317d);
+    color: #effcff;
+    box-shadow: 0 0 14px rgba(0, 208, 255, 0.12);
+}
+
+.digital-map-theme .style-panel button:hover:not(:disabled),
+.digital-map-theme .boundary-stats-panel > button:hover:not(:disabled),
+.digital-map-theme .boundary-stats-mode button:hover:not(:disabled),
+.digital-map-theme .population-editor button:hover:not(:disabled),
+.digital-map-theme .branch-management-section button:hover:not(:disabled),
+.digital-map-theme .point-dialog-actions button:hover:not(:disabled) {
+    border-color: rgba(100, 235, 255, 0.75);
+    box-shadow: 0 0 18px rgba(0, 208, 255, 0.3);
+}
+
+.digital-map-theme .style-panel button.danger-action,
+.digital-map-theme .branch-management-section button.danger-action,
+.digital-map-theme .point-dialog-actions button.danger-action {
+    background: linear-gradient(135deg, #a81d55, #731c62);
+}
+
+.digital-map-theme .style-panel button:disabled,
+.digital-map-theme .boundary-stats-panel button:disabled,
+.digital-map-theme .boundary-stats-mode button:disabled,
+.digital-map-theme .branch-management-section button:disabled {
+    border-color: rgba(114, 139, 158, 0.25);
+    background: #26394a;
+    color: #91a6b5;
+    box-shadow: none;
+}
+
+.digital-map-theme .style-panel .view-mode button {
+    border-color: rgba(64, 144, 178, 0.28);
+    background: rgba(11, 31, 52, 0.9);
+    color: #b9dbe8;
+}
+
+.digital-map-theme .style-panel .view-mode button[aria-pressed="true"] {
+    border-color: #3de7ff;
+    background: linear-gradient(135deg, #087d9a, #174b81);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(0, 218, 255, 0.28);
+}
+
+.digital-map-theme .boundary-stats-mode button[aria-pressed="true"] {
+    border-color: #3de7ff;
+    background: linear-gradient(135deg, #087d9a, #174b81);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(0, 218, 255, 0.28);
+}
+
+.digital-map-theme #map .leaflet-overlay-pane path.region-selected-glow {
+    stroke: #ff45ca !important;
+    filter:
+        drop-shadow(0 0 6px rgba(255, 69, 202, 1))
+        drop-shadow(0 0 14px rgba(255, 69, 202, 0.95));
+}
+
+.digital-map-theme .access-panel,
+.digital-map-theme .creator-credit-panel,
+.digital-map-theme #storageStatus {
+    border-color: rgba(75, 157, 188, 0.32);
+    color: #83dceb;
+}
+
+.digital-map-theme #accessStatus,
+.digital-map-theme #locationResult,
+.digital-map-theme #regionInfoResults,
+.digital-map-theme .region-info-category h5,
+.digital-map-theme .region-info-source,
+.digital-map-theme .boundary-stats-note,
+.digital-map-theme .boundary-stats-list dt {
+    color: #a9c7d8;
+}
+
+.digital-map-theme .region-info-source a {
+    color: #43deef;
+}
+
+.digital-map-theme .boundary-stats-list > div,
+.digital-map-theme .branch-management-section,
+.digital-map-theme .branch-access-choices {
+    border-color: rgba(54, 144, 178, 0.24);
+    background: rgba(9, 29, 49, 0.72);
+}
+
+.digital-map-theme .branch-view-notice {
+    border: 1px solid rgba(58, 185, 222, 0.22);
+    background: rgba(7, 57, 78, 0.65);
+    color: #b5ebf8;
+}
+
+.digital-map-theme .branch-management-dialog,
+.digital-map-theme .point-dialog {
+    border: 1px solid rgba(44, 203, 237, 0.45);
+    background: rgba(4, 15, 31, 0.97);
+    color: #d7f4ff;
+    box-shadow: 0 0 35px rgba(0, 194, 255, 0.16), 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.digital-map-theme .branch-management-dialog::backdrop,
+.digital-map-theme .point-dialog-backdrop,
+.digital-map-theme .map-access-gate {
+    background: rgba(1, 6, 16, 0.62);
+}
+
+.digital-map-theme .branch-management-heading h2,
+.digital-map-theme .branch-management-panel > p,
+.digital-map-theme .branch-management-section h3,
+.digital-map-theme .branch-management-section label,
+.digital-map-theme .point-dialog h4,
+.digital-map-theme .point-dialog p,
+.digital-map-theme .point-dialog label {
+    color: #d3efff;
+}
+
+.digital-map-theme .branch-delete-confirmation {
+    border-color: rgba(255, 83, 153, 0.52);
+    background: rgba(75, 18, 54, 0.42);
+}
+
+.digital-map-theme .branch-delete-confirmation legend,
+.digital-map-theme .branch-delete-confirmation p,
+.digital-map-theme #adminLoginError {
+    color: #ff9ac4;
+}
+
+.digital-map-theme .branch-management-heading button {
+    background: rgba(17, 47, 70, 0.9);
+    color: #d3efff;
+}
+
+.digital-map-theme .map-access-message {
+    border-color: rgba(50, 218, 250, 0.48);
+    background: rgba(4, 15, 31, 0.94);
+    box-shadow: 0 0 45px rgba(0, 194, 255, 0.16), 0 24px 80px rgba(0, 0, 0, 0.58);
+}
+
+.digital-map-theme .map-access-message h1,
+.digital-map-theme .map-access-message p,
+.digital-map-theme .map-access-message .creator-credit {
+    color: #c8efff;
+}
+
+.digital-map-theme .region-label,
+.digital-map-theme .maplibregl-map .maplibregl-marker.map3d-region-label,
+.digital-map-theme .named-point-text {
+    border-color: rgba(74, 226, 255, 0.8);
+    background: rgba(3, 16, 34, 0.91);
+    color: #e2faff;
+    text-shadow: 0 0 8px rgba(25, 211, 255, 0.45);
+    box-shadow: 0 0 12px rgba(10, 207, 255, 0.22);
+}
+
+.digital-map-theme .maplibregl-ctrl-group {
+    overflow: hidden;
+    border: 1px solid rgba(48, 205, 239, 0.38);
+    background: rgba(4, 17, 34, 0.9);
+    box-shadow: 0 0 16px rgba(0, 177, 229, 0.16);
+}
+
+.digital-map-theme .maplibregl-ctrl-group button {
+    background-color: transparent;
+}
+
+.digital-map-theme .maplibregl-ctrl-group button span {
+    filter: invert(0.82) sepia(0.35) saturate(1.3) hue-rotate(155deg);
+}
+
+.digital-map-theme .maplibregl-ctrl-attrib {
+    border: 1px solid rgba(48, 205, 239, 0.25);
+    border-radius: 6px;
+    background: rgba(4, 17, 34, 0.84);
+    color: #bad6e6;
+}
+
+.digital-map-theme .maplibregl-ctrl-attrib a {
+    color: #71dcef;
+}
+
+.digital-map-theme .map3d-selection-outline-path {
+    stroke: #ff45ca;
+    filter:
+        drop-shadow(0 0 7px rgba(255, 69, 202, 1))
+        drop-shadow(0 0 16px rgba(255, 69, 202, 0.82));
+}
+
+.digital-map-theme .map3d-selection-fill-path {
+    fill: #ff45ca;
+}
+
+.digital-map-theme .map-access-message .access-login-form input {
+    border-color: rgba(68, 198, 232, 0.48);
+    background: rgba(1, 8, 20, 0.88);
+    color: #e8fbff;
+}
+
 .point-dialog-backdrop {
     position: fixed;
     inset: 0;
