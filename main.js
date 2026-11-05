@@ -15,19 +15,11 @@ var mapFocusBlurOverlay = createMapFocusBlurOverlay(map.getContainer());
 var map3DFocusBlurOverlay = null;
 
 var streetMapLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
         maxZoom: 19,
         className: 'digital-street-base-tile',
-        attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS user community'
-    }
-);
-var streetLabelsLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-    {
-        maxZoom: 19,
-        className: 'digital-street-label-tile',
-        attribution: 'Labels &copy; Esri'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
     }
 );
 var satelliteMapLayer = L.tileLayer(
@@ -50,13 +42,12 @@ var satelliteMapButton = document.getElementById('satelliteMapButton');
 var currentMapMode = '3d';
 
 function syncLeafletBaseLayers() {
-    [streetMapLayer, streetLabelsLayer, satelliteMapLayer, satelliteLabelsLayer].forEach(function (layer) {
+    [streetMapLayer, satelliteMapLayer, satelliteLabelsLayer].forEach(function (layer) {
         map.removeLayer(layer);
     });
 
     if (currentMapMode === '2d' && streetMapToggle.checked) {
         streetMapLayer.addTo(map);
-        streetLabelsLayer.addTo(map);
     } else if (currentMapMode === 'satellite') {
         satelliteMapLayer.addTo(map);
         if (streetMapToggle.checked) satelliteLabelsLayer.addTo(map);
@@ -204,6 +195,7 @@ var map3DContainer = document.getElementById('map3d');
 var map3D = null;
 var globeRotationFrame = null;
 var globeRotationTimestamp = null;
+var globeReturnIdleListener = null;
 var pendingBranchFocus = false;
 var pendingBranchFocusDuration = null;
 var branchFocusIdleListener = null;
@@ -760,6 +752,22 @@ function applyDigitalMapStyle() {
         }
     });
 
+    [
+        { id: 'highway-name-minor', minZoom: 13 },
+        { id: 'highway-name-path', minZoom: 13.5 }
+    ].forEach(function (labelRange) {
+        var layer = map3D.getStyle().layers.find(function (styleLayer) {
+            return styleLayer.id === labelRange.id;
+        });
+        if (layer) {
+            map3D.setLayerZoomRange(
+                layer.id,
+                labelRange.minZoom,
+                typeof layer.maxzoom === 'number' ? layer.maxzoom : 24
+            );
+        }
+    });
+
     map3D.addSource('digital-globe-grid', {
         type: 'geojson',
         data: addDigitalGlobeGrid()
@@ -985,11 +993,40 @@ document.addEventListener('visibilitychange', function () {
 });
 
 function animateGlobeReturn(duration) {
-    if (!map3D || !map3D.isStyleLoaded()) {
+    if (!map3D) {
         pendingGlobeReturn = true;
+        initialize3DMap();
         return;
     }
+    if (!map3D.isStyleLoaded()) {
+        pendingGlobeReturn = true;
+        if (!globeReturnIdleListener) {
+            globeReturnIdleListener = function () {
+                globeReturnIdleListener = null;
+                if (pendingGlobeReturn && currentMapMode === '3d') {
+                    animateGlobeReturn(duration);
+                }
+            };
+            map3D.once('idle', globeReturnIdleListener);
+        }
+        return;
+    }
+    if (globeReturnIdleListener) {
+        map3D.off('idle', globeReturnIdleListener);
+        globeReturnIdleListener = null;
+    }
     pendingGlobeReturn = false;
+    var center = map3D.getCenter();
+    var longitudeDelta = ((center.lng - 5 + 540) % 360) - 180;
+    var isAlreadyAtGlobe = Math.abs(longitudeDelta) < 0.001 &&
+        Math.abs(center.lat - 20) < 0.001 &&
+        Math.abs(map3D.getZoom() - 1.6) < 0.001 &&
+        Math.abs(map3D.getPitch()) < 0.001 &&
+        Math.abs(map3D.getBearing()) < 0.001;
+    if (isAlreadyAtGlobe) {
+        startGlobeRotation();
+        return;
+    }
     map3D.once('moveend', startGlobeRotation);
     map3D.flyTo({
         center: [5, 20],
