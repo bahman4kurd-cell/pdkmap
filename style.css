@@ -950,10 +950,9 @@ body, html {
 
 .region-label {
     max-width: min(180px, 30vw);
-    padding: 2px 5px;
-    border: 1px solid #111827;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.92);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #111827;
     font-size: calc(10px * var(--map-label-scale, 1));
     font-weight: 700;
@@ -961,15 +960,15 @@ body, html {
     text-align: center;
     white-space: normal;
     overflow-wrap: anywhere;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    box-shadow: none;
+    text-shadow: 0 1px 2px #fff, 0 0 4px #fff;
 }
 
 .maplibregl-map .maplibregl-marker.map3d-region-label {
     max-width: min(180px, 30vw);
-    padding: 2px 6px;
-    border: 1px solid rgba(17, 24, 39, 0.75);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.94);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #111827;
     direction: rtl;
     unicode-bidi: plaintext;
@@ -981,7 +980,8 @@ body, html {
     white-space: normal;
     overflow-wrap: anywhere;
     letter-spacing: normal;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
+    text-shadow: 0 1px 2px #fff, 0 0 4px #fff;
     pointer-events: none;
     user-select: none;
 }
@@ -1089,10 +1089,9 @@ body, html {
 .named-point-text {
     display: none;
     max-width: min(160px, 34vw);
-    padding: 2px 5px;
-    border: 1px solid rgba(17, 24, 39, 0.65);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.96);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #111827;
     direction: rtl;
     unicode-bidi: plaintext;
@@ -1101,7 +1100,8 @@ body, html {
     line-height: 1.3;
     white-space: normal;
     overflow-wrap: anywhere;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
+    text-shadow: 0 1px 2px #fff, 0 0 4px #fff;
 }
 
 .named-point-content.is-label-selected > .named-point-text,
@@ -1375,11 +1375,16 @@ body, html {
 .digital-map-theme .region-label,
 .digital-map-theme .maplibregl-map .maplibregl-marker.map3d-region-label,
 .digital-map-theme .named-point-text {
-    border-color: rgba(74, 226, 255, 0.8);
-    background: rgba(3, 16, 34, 0.91);
+    border: 0;
+    background: transparent;
     color: #e2faff;
-    text-shadow: 0 0 8px rgba(25, 211, 255, 0.45);
-    box-shadow: 0 0 12px rgba(10, 207, 255, 0.22);
+    text-shadow:
+        -1px -1px 2px #06101e,
+        1px -1px 2px #06101e,
+        -1px 1px 2px #06101e,
+        1px 1px 2px #06101e,
+        0 0 5px #06101e;
+    box-shadow: none;
 }
 
 .digital-map-theme .maplibregl-ctrl-group {
