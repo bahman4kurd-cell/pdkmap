@@ -597,7 +597,7 @@ function update3DRegionFilter() {
     if (!map3D) return;
 
     sync3DRegionLabels();
-    if (!map3D.isStyleLoaded() || !map3D.getLayer('committee-fill')) return;
+    if (!map3D.getLayer('committee-fill')) return;
 
     var selectedRegion = getSelectedRegionLayer(regionFilter.value);
     [
@@ -605,15 +605,16 @@ function update3DRegionFilter() {
         'committee-extrusion',
         'committee-cap',
         'committee-outline',
-        'committee-glow'
+        'committee-glow',
+        'committee-selected-glow'
     ].forEach(function (id) {
-        if (map3D.getLayer(id)) map3D.setFilter(id, null);
+        if (!map3D.getLayer(id)) return;
+        map3D.setFilter(id, id === 'committee-selected-glow' ?
+            (selectedRegion ? ['==', ['get', 'regionId'], selectedRegion.regionId] :
+                ['==', ['get', 'regionId'], '']) : null);
+        map3D.setLayoutProperty(id, 'visibility',
+            isGlobeOverview ? 'none' : 'visible');
     });
-    if (map3D.getLayer('committee-selected-glow')) {
-        map3D.setFilter('committee-selected-glow', selectedRegion ?
-            ['==', ['get', 'regionId'], selectedRegion.regionId] :
-            ['==', ['get', 'regionId'], '']);
-    }
     sync3DSelectionOutline();
 }
 
@@ -1168,6 +1169,7 @@ function focusMapToBranch(duration) {
     isGlobeOverview = false;
     pendingGlobeReturn = false;
     stopGlobeRotation();
+    update3DRegionFilter();
     var bounds = getBranchBounds();
     var motionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ?
         0 : duration;
