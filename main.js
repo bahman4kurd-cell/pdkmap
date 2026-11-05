@@ -495,8 +495,6 @@ function sync3DRegions() {
     sync3DRegionLabels();
     if (!map3D.isStyleLoaded()) return;
 
-    var source = map3D.getSource('committee-regions');
-    if (source) source.setData(getRegionFeatureCollection());
     update3DRegionFilter();
 }
 
@@ -598,6 +596,13 @@ function update3DRegionFilter() {
 
     sync3DRegionLabels();
     if (!map3D.getLayer('committee-fill')) return;
+
+    var source = map3D.getSource('committee-regions');
+    if (source) {
+        source.setData(isGlobeOverview ?
+            { type: 'FeatureCollection', features: [] } :
+            getRegionFeatureCollection());
+    }
 
     var selectedRegion = getSelectedRegionLayer(regionFilter.value);
     [
