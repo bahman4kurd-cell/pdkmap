@@ -230,6 +230,8 @@ var map3D = null;
 var globeRotationFrame = null;
 var globeRotationTimestamp = null;
 var globeReturnIdleListener = null;
+var globeReturnMoveListener = null;
+var globeReturnToken = 0;
 var pendingBranchFocus = false;
 var pendingBranchFocusDuration = null;
 var branchFocusIdleListener = null;
@@ -1043,6 +1045,14 @@ function startGlobeRotation() {
     globeRotationFrame = requestAnimationFrame(rotateGlobe);
 }
 
+function cancelGlobeReturnTransition() {
+    globeReturnToken += 1;
+    if (map3D && globeReturnMoveListener) {
+        map3D.off('moveend', globeReturnMoveListener);
+        globeReturnMoveListener = null;
+    }
+}
+
 document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
         stopGlobeRotation();
@@ -1074,6 +1084,9 @@ function animateGlobeReturn(duration) {
         map3D.off('idle', globeReturnIdleListener);
         globeReturnIdleListener = null;
     }
+    cancelGlobeReturnTransition();
+    stopGlobeRotation();
+    map3D.stop();
     pendingGlobeReturn = false;
     var center = map3D.getCenter();
     var longitudeDelta = ((center.lng - 5 + 540) % 360) - 180;
@@ -1086,18 +1099,42 @@ function animateGlobeReturn(duration) {
         startGlobeRotation();
         return;
     }
-    map3D.once('moveend', startGlobeRotation);
-    map3D.flyTo({
+    var returnToken = globeReturnToken;
+    var target = {
         center: [5, 20],
         zoom: 1.6,
         pitch: 0,
-        bearing: 0,
+        bearing: 0
+    };
+    globeReturnMoveListener = function () {
+        map3D.off('moveend', globeReturnMoveListener);
+        globeReturnMoveListener = null;
+        if (returnToken !== globeReturnToken || currentMapMode !== '3d' ||
+            !isGlobeOverview) return;
+
+        var current = map3D.getCenter();
+        var longitudeDelta = ((current.lng - 5 + 540) % 360) - 180;
+        var reachedGlobe = Math.abs(longitudeDelta) < 0.01 &&
+            Math.abs(current.lat - 20) < 0.01 &&
+            Math.abs(map3D.getZoom() - target.zoom) < 0.01 &&
+            Math.abs(map3D.getPitch()) < 0.01 &&
+            Math.abs(map3D.getBearing()) < 0.01;
+        if (!reachedGlobe) map3D.jumpTo(target);
+        startGlobeRotation();
+    };
+    map3D.on('moveend', globeReturnMoveListener);
+    map3D.flyTo({
+        center: target.center,
+        zoom: target.zoom,
+        pitch: target.pitch,
+        bearing: target.bearing,
         duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : duration,
         essential: true
     });
 }
 
 function returnToGlobe() {
+    cancelGlobeReturnTransition();
     isGlobeOverview = true;
     pendingBranchFocus = false;
     pendingBranchFocusDuration = null;
@@ -1127,6 +1164,9 @@ function getBranchBounds() {
 
 function focusMapToBranch(duration) {
     if (!selectedBranchId) return;
+    cancelGlobeReturnTransition();
+    isGlobeOverview = false;
+    pendingGlobeReturn = false;
     stopGlobeRotation();
     var bounds = getBranchBounds();
     var motionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ?
@@ -2270,6 +2310,7 @@ function enableRegionSelection(layer) {
 function selectRegion(layer) {
     selectedRegionLayer = layer;
     if (layer) {
+        cancelGlobeReturnTransition();
         isGlobeOverview = false;
         pendingGlobeReturn = false;
         stopGlobeRotation();
