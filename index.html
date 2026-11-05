@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=map-label-selection-v1" />
+    <link rel="stylesheet" href="style.css?v=weather-boundary-v2" />
 </head>
 <body class="digital-map-theme">
 
@@ -132,6 +132,29 @@
             <button type="submit" id="savePopulationButton">خەزنکردنی دانیشتوان</button>
         </form>
         <button type="button" id="refreshBuildingStatsButton">نوێکردنەوەی ژمارەی بینا</button>
+        <section id="boundaryWeatherPanel" class="boundary-weather-panel" aria-labelledby="boundaryWeatherTitle">
+            <div class="boundary-weather-heading">
+                <h3 id="boundaryWeatherTitle">کەش و هەوای سنوور</h3>
+                <span id="boundaryWeatherIcon" class="boundary-weather-icon" aria-hidden="true">⛅</span>
+            </div>
+            <p id="boundaryWeatherScope" class="boundary-weather-scope">ناوچەیەک یان لقێک هەڵبژێرە.</p>
+            <p id="boundaryWeatherSummary" class="boundary-weather-summary" role="status" aria-live="polite">
+                چاوەڕێی زانیاری کەش و هەوای سنوورەکە...
+            </p>
+            <dl class="boundary-weather-details">
+                <div><dt>پلەی گەرمی</dt><dd id="weatherTemperatureValue">—</dd></div>
+                <div><dt>هەستی گەرمی</dt><dd id="weatherFeelsLikeValue">—</dd></div>
+                <div><dt>هەور</dt><dd id="weatherCloudValue">—</dd></div>
+                <div><dt>باران / بەفر</dt><dd id="weatherPrecipitationValue">—</dd></div>
+                <div><dt>شێ</dt><dd id="weatherHumidityValue">—</dd></div>
+                <div><dt>خێرایی با</dt><dd id="weatherWindValue">—</dd></div>
+            </dl>
+            <div class="boundary-weather-footer">
+                <span id="boundaryWeatherUpdated">—</span>
+                <button type="button" id="refreshBoundaryWeatherButton">نوێکردنەوە</button>
+            </div>
+            <a class="boundary-weather-source" href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">داتای کەش و هەوا: Open-Meteo</a>
+        </section>
     </aside>
 
     <dialog id="branchManagementDialog" class="branch-management-dialog" aria-labelledby="branchManagementTitle">
@@ -230,6 +253,6 @@
     <script src="supabase-config.js?v=project-ref-xauuquctqpiixloxfzzp"></script>
     
     <!-- Custom JS -->
-    <script src="main.js?v=map-label-selection-v1"></script>
+    <script src="main.js?v=weather-boundary-v2"></script>
 </body>
 </html>

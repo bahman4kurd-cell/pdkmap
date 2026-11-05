@@ -26,6 +26,7 @@ var satelliteMapLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {
         maxZoom: 19,
+        className: 'digital-satellite-base-tile',
         attribution: 'Tiles &copy; Esri - Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
     }
 );
@@ -170,6 +171,30 @@ var regionInfoCache = new WeakMap();
 var regionInfoAbortController = null;
 var regionInfoRequestLayer = null;
 var boundaryStatsPanel = document.getElementById('boundaryStatsPanel');
+var boundaryWeatherSummary = document.getElementById('boundaryWeatherSummary');
+var boundaryWeatherScope = document.getElementById('boundaryWeatherScope');
+var boundaryWeatherIcon = document.getElementById('boundaryWeatherIcon');
+var boundaryWeatherUpdated = document.getElementById('boundaryWeatherUpdated');
+var weatherTemperatureValue = document.getElementById('weatherTemperatureValue');
+var weatherFeelsLikeValue = document.getElementById('weatherFeelsLikeValue');
+var weatherCloudValue = document.getElementById('weatherCloudValue');
+var weatherHumidityValue = document.getElementById('weatherHumidityValue');
+var weatherPrecipitationValue = document.getElementById('weatherPrecipitationValue');
+var weatherWindValue = document.getElementById('weatherWindValue');
+var refreshBoundaryWeatherButton = document.getElementById('refreshBoundaryWeatherButton');
+var weatherAbortController = null;
+var weatherRequestToken = 0;
+var weatherEffectType = '';
+var weatherEffectFeatures = [];
+var weatherEffectCanvas2D = null;
+var weatherEffectCanvas3D = null;
+var weatherEffectFrame = null;
+var lastWeatherEffectFrame = null;
+var lastWeatherRenderTime = 0;
+var weatherParticles = Array.from({ length: 64 }, function () {
+    return { x: Math.random(), y: Math.random() };
+});
+var isDaytime = new Date().getHours() >= 6 && new Date().getHours() < 18;
 var regionStatsModeButton = document.getElementById('regionStatsModeButton');
 var branchStatsModeButton = document.getElementById('branchStatsModeButton');
 var boundaryStatsScope = document.getElementById('boundaryStatsScope');
@@ -692,8 +717,17 @@ function addDigitalGlobeGrid() {
     return { type: 'FeatureCollection', features: features };
 }
 
-function applyDigitalMapStyle() {
-    var palette = {
+function applyDigitalMapPalette() {
+    var palette = isDaytime ? {
+        background: '#d8e6e8',
+        landDetail: '#d5dfd9',
+        water: '#b7d7e1',
+        cyan: '#087e9d',
+        softCyan: '#3e7887',
+        magenta: '#ad478c',
+        text: '#183443',
+        halo: '#eef5f3'
+    } : {
         background: '#030916',
         landDetail: '#0b263c',
         water: '#041326',
@@ -706,26 +740,28 @@ function applyDigitalMapStyle() {
 
     map3D.setPaintProperty('background', 'background-color', palette.background);
     map3D.getStyle().layers.forEach(function (layer) {
+        if (layer.source === 'committee-regions') return;
+
         if (layer.type === 'raster') {
-            map3D.setPaintProperty(layer.id, 'raster-saturation', -0.7);
-            map3D.setPaintProperty(layer.id, 'raster-contrast', 0.25);
-            map3D.setPaintProperty(layer.id, 'raster-brightness-min', 0.02);
-            map3D.setPaintProperty(layer.id, 'raster-brightness-max', 0.38);
-            map3D.setPaintProperty(layer.id, 'raster-hue-rotate', 195);
+            map3D.setPaintProperty(layer.id, 'raster-saturation', isDaytime ? 0 : -0.7);
+            map3D.setPaintProperty(layer.id, 'raster-contrast', isDaytime ? 0 : 0.25);
+            map3D.setPaintProperty(layer.id, 'raster-brightness-min', isDaytime ? 0 : 0.02);
+            map3D.setPaintProperty(layer.id, 'raster-brightness-max', isDaytime ? 1 : 0.38);
+            map3D.setPaintProperty(layer.id, 'raster-hue-rotate', isDaytime ? 0 : 195);
             return;
         }
 
         if (layer.type === 'fill') {
             var fillColor = layer.id === 'water' ? palette.water :
-                layer.id === 'park' ? '#082f34' :
-                    layer.id === 'landcover_ice' ? '#17394c' : palette.landDetail;
+                layer.id === 'park' ? (isDaytime ? '#a9c5ad' : '#082f34') :
+                    layer.id === 'landcover_ice' ? (isDaytime ? '#e6eeee' : '#17394c') : palette.landDetail;
             map3D.setPaintProperty(layer.id, 'fill-color', fillColor);
             if (layer.id === 'park') {
                 map3D.setPaintProperty(layer.id, 'fill-opacity', 0.42);
                 map3D.setPaintProperty(layer.id, 'fill-outline-color', '#147e85');
             } else if (layer.id === 'building') {
-                map3D.setPaintProperty(layer.id, 'fill-color', '#12334d');
-                map3D.setPaintProperty(layer.id, 'fill-outline-color', '#17627d');
+                map3D.setPaintProperty(layer.id, 'fill-color', isDaytime ? '#c1c6b8' : '#12334d');
+                map3D.setPaintProperty(layer.id, 'fill-outline-color', isDaytime ? '#829b9b' : '#17627d');
             } else if (layer.id.indexOf('landcover_') === 0 ||
                 layer.id.indexOf('landuse_') === 0) {
                 map3D.setPaintProperty(layer.id, 'fill-opacity', 0.38);
@@ -734,11 +770,11 @@ function applyDigitalMapStyle() {
         }
 
         if (layer.type === 'line') {
-            var lineColor = layer.id.indexOf('boundary_') === 0 ? '#14516c' :
-                layer.id.indexOf('waterway_') === 0 ? '#0d7494' :
-                    layer.id.indexOf('park_') === 0 ? '#16827c' :
-                        layer.id.indexOf('_casing') !== -1 ? '#071525' :
-                            layer.id.indexOf('rail') !== -1 ? '#27627b' :
+            var lineColor = layer.id.indexOf('boundary_') === 0 ? (isDaytime ? '#567a83' : '#14516c') :
+                layer.id.indexOf('waterway_') === 0 ? (isDaytime ? '#579eb3' : '#0d7494') :
+                    layer.id.indexOf('park_') === 0 ? (isDaytime ? '#6d9877' : '#16827c') :
+                        layer.id.indexOf('_casing') !== -1 ? (isDaytime ? '#75828a' : '#071525') :
+                            layer.id.indexOf('rail') !== -1 ? (isDaytime ? '#748e91' : '#27627b') :
                                 palette.softCyan;
             map3D.setPaintProperty(layer.id, 'line-color', lineColor);
             if (layer.id.indexOf('road_') === 0 ||
@@ -751,14 +787,14 @@ function applyDigitalMapStyle() {
         }
 
         if (layer.type === 'fill-extrusion' && layer.id === 'building-3d') {
-            map3D.setPaintProperty(layer.id, 'fill-extrusion-color', '#0d5272');
+            map3D.setPaintProperty(layer.id, 'fill-extrusion-color', isDaytime ? '#9aaba9' : '#0d5272');
             map3D.setPaintProperty(layer.id, 'fill-extrusion-opacity', 0.68);
             return;
         }
 
         if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
             map3D.setPaintProperty(layer.id, 'text-color',
-                layer.id.indexOf('water_') === 0 ? '#66cde5' : palette.text);
+                layer.id.indexOf('water_') === 0 ? (isDaytime ? '#267c98' : '#66cde5') : palette.text);
             map3D.setPaintProperty(layer.id, 'text-halo-color', palette.halo);
             map3D.setPaintProperty(layer.id, 'text-halo-width', 1.3);
             map3D.setPaintProperty(layer.id, 'text-halo-blur', 0.4);
@@ -781,6 +817,11 @@ function applyDigitalMapStyle() {
         }
     });
 
+    return palette;
+}
+
+function applyDigitalMapStyle() {
+    var palette = applyDigitalMapPalette();
     map3D.addSource('digital-globe-grid', {
         type: 'geojson',
         data: addDigitalGlobeGrid()
@@ -840,6 +881,7 @@ function initialize3DMap() {
     map3D.on('load', function () {
         map3D.setProjection({ type: 'globe' });
         applyDigitalMapStyle();
+        applyDayNightMode();
         var firstSymbolLayer = map3D.getStyle().layers.find(function (layer) {
             return layer.type === 'symbol';
         });
@@ -1185,6 +1227,7 @@ function setMapMode(mode) {
             }
         });
     }
+    syncWeatherEffects();
 }
 
 map2DButton.addEventListener('click', function () {
@@ -1484,6 +1527,321 @@ function updateBoundaryStats() {
             refreshBuildingStatsButton.disabled = !getBoundaryStatsLayers().length;
         }
     });
+}
+
+function getWeatherBoundaryLayers() {
+    if (selectedRegionLayer && selectedRegionLayer.kind !== 'named-point') {
+        return [selectedRegionLayer];
+    }
+
+    var layers = [];
+    drawnItems.eachLayer(function (layer) {
+        if (layer.kind !== 'named-point' && !layer.parentRegionId) layers.push(layer);
+    });
+    return layers;
+}
+
+function getWeatherPresentation(code) {
+    if (code === 0) return { text: 'ئاسمان ساماڵە', icon: '☀️', effect: '' };
+    if (code === 1) return { text: 'زۆربەی ئاسمان ساماڵە', icon: '🌤️', effect: 'cloud-light' };
+    if (code === 2) return { text: 'هەورە و ساماڵە', icon: '⛅', effect: 'cloud' };
+    if (code === 3) return { text: 'هەورە', icon: '☁️', effect: 'cloud' };
+    if ([45, 48].includes(code)) return { text: 'تەمی هەیە', icon: '🌫️', effect: '' };
+    if ([71, 73, 75, 77, 85, 86].includes(code)) {
+        return { text: 'بەفر دەبارێت', icon: '❄️', effect: 'snow' };
+    }
+    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) {
+        return {
+            text: code >= 95 ? 'ڕەشەبا و باران' : 'باران دەبارێت',
+            icon: code >= 95 ? '⛈️' : '🌧️',
+            effect: 'rain'
+        };
+    }
+    return { text: 'کەش و هەوا گۆڕاوە', icon: '🌡️', effect: '' };
+}
+
+function applyDayNightMode() {
+    document.body.classList.toggle('map-day', isDaytime);
+    document.body.classList.toggle('map-night', !isDaytime);
+    if (map3D && map3D.isStyleLoaded()) applyDigitalMapPalette();
+}
+
+function getWeatherEffectCanvas(mode) {
+    var mapElement = mode === '3d' ? map3DContainer : map.getContainer();
+    var property = mode === '3d' ? 'weatherEffectCanvas3D' : 'weatherEffectCanvas2D';
+    var canvas = mode === '3d' ? weatherEffectCanvas3D : weatherEffectCanvas2D;
+    if (!canvas || canvas.parentElement !== mapElement) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'map-weather-effects';
+        canvas.setAttribute('aria-hidden', 'true');
+        mapElement.appendChild(canvas);
+        if (mode === '3d') weatherEffectCanvas3D = canvas;
+        else weatherEffectCanvas2D = canvas;
+    }
+    return canvas;
+}
+
+function projectWeatherCoordinate(mode, coordinate) {
+    if (mode === '3d') return map3D.project(coordinate);
+    return map.latLngToContainerPoint([coordinate[1], coordinate[0]]);
+}
+
+function traceWeatherBoundaries(context, mode) {
+    context.beginPath();
+    weatherEffectFeatures.forEach(function (feature) {
+        var geometry = feature.geometry;
+        if (!geometry) return;
+        var polygons = geometry.type === 'Polygon' ? [geometry.coordinates] :
+            geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+        polygons.forEach(function (polygon) {
+            polygon.forEach(function (ring) {
+                if (!ring.length) return;
+                var firstPoint = projectWeatherCoordinate(mode, ring[0]);
+                context.moveTo(firstPoint.x, firstPoint.y);
+                for (var index = 1; index < ring.length; index += 1) {
+                    var point = projectWeatherCoordinate(mode, ring[index]);
+                    context.lineTo(point.x, point.y);
+                }
+                context.closePath();
+            });
+        });
+    });
+}
+
+function drawWeatherEffectCanvas(mode) {
+    var canvas = getWeatherEffectCanvas(mode);
+    var isVisible = (mode === '3d' ? currentMapMode === '3d' : currentMapMode !== '3d') &&
+        weatherEffectType &&
+        weatherEffectFeatures.length && !document.hidden &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    canvas.hidden = !isVisible;
+    if (!isVisible) return;
+    if (mode === '3d' && (!map3D || !map3D.loaded())) return;
+
+    var rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    var canvasWidth = Math.round(rect.width * pixelRatio);
+    var canvasHeight = Math.round(rect.height * pixelRatio);
+    if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+    }
+    var context = canvas.getContext('2d');
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, rect.width, rect.height);
+    traceWeatherBoundaries(context, mode);
+    context.save();
+    context.clip('evenodd');
+    var frameTime = performance.now();
+    var elapsed = lastWeatherEffectFrame == null ? 16 :
+        Math.min(frameTime - lastWeatherEffectFrame, 50);
+    weatherParticles.forEach(function (particle, index) {
+        var isCloud = weatherEffectType === 'cloud' || weatherEffectType === 'cloud-light';
+        particle.y += isCloud ? 0 : elapsed *
+            (weatherEffectType === 'rain' ? 0.00042 : 0.00011);
+        particle.x += elapsed * (isCloud ? 0.000012 :
+            weatherEffectType === 'rain' ? 0.000055 : 0.000025);
+        if (particle.y > 1.05) {
+            particle.y = -0.05;
+            particle.x = Math.random();
+        }
+        if (particle.x > 1.05) particle.x = -0.05;
+
+        var x = particle.x * rect.width;
+        var y = particle.y * rect.height;
+        if (isCloud) {
+            if (index >= 9) return;
+            var cloudRadius = Math.max(34, Math.min(rect.width, rect.height) * 0.065);
+            var cloudOpacity = weatherEffectType === 'cloud-light' ? 0.055 : 0.09;
+            var cloudGradient = context.createRadialGradient(
+                x, y, 0, x, y, cloudRadius
+            );
+            cloudGradient.addColorStop(0, 'rgba(223, 239, 246, ' + cloudOpacity + ')');
+            cloudGradient.addColorStop(1, 'rgba(223, 239, 246, 0)');
+            context.fillStyle = cloudGradient;
+            context.beginPath();
+            context.arc(x, y, cloudRadius, 0, Math.PI * 2);
+            context.fill();
+            return;
+        }
+        context.globalAlpha = weatherEffectType === 'rain' ? 0.42 : 0.65;
+        context.strokeStyle = weatherEffectType === 'rain' ? '#d9f6ff' : '#f5fbff';
+        context.fillStyle = '#f5fbff';
+        if (weatherEffectType === 'rain') {
+            var dropLength = 5 + (index % 4) * 2;
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(x, y);
+            context.lineTo(x - 2, y + dropLength);
+            context.stroke();
+        } else {
+            var radius = 1.2 + (index % 3) * 0.45;
+            context.beginPath();
+            context.arc(x, y, radius, 0, Math.PI * 2);
+            context.fill();
+        }
+    });
+    context.restore();
+    lastWeatherEffectFrame = frameTime;
+}
+
+function animateWeatherEffects() {
+    weatherEffectFrame = null;
+    if (!weatherEffectType || document.hidden ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        drawWeatherEffectCanvas(currentMapMode);
+        return;
+    }
+    var now = performance.now();
+    if (now - lastWeatherRenderTime >= 33) {
+        drawWeatherEffectCanvas(currentMapMode);
+        lastWeatherRenderTime = now;
+    }
+    weatherEffectFrame = window.requestAnimationFrame(animateWeatherEffects);
+}
+
+function clearBoundaryWeatherReadings() {
+    [weatherTemperatureValue, weatherFeelsLikeValue, weatherCloudValue,
+        weatherHumidityValue, weatherPrecipitationValue, weatherWindValue]
+        .forEach(function (element) { element.textContent = '—'; });
+}
+
+function syncWeatherEffects() {
+    if (weatherEffectFrame != null) {
+        window.cancelAnimationFrame(weatherEffectFrame);
+        weatherEffectFrame = null;
+    }
+    lastWeatherEffectFrame = null;
+    lastWeatherRenderTime = 0;
+    if (weatherEffectType && weatherEffectFeatures.length && !document.hidden &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        weatherEffectFrame = window.requestAnimationFrame(animateWeatherEffects);
+    } else {
+        drawWeatherEffectCanvas('2d');
+        drawWeatherEffectCanvas('3d');
+    }
+}
+
+async function updateBoundaryWeather() {
+    var requestToken = ++weatherRequestToken;
+    if (weatherAbortController) {
+        weatherAbortController.abort();
+        weatherAbortController = null;
+    }
+    var layers = getWeatherBoundaryLayers();
+    weatherEffectType = '';
+    weatherEffectFeatures = [];
+    syncWeatherEffects();
+
+    if (!layers.length) {
+        boundaryWeatherScope.textContent = 'لقێک یان ناوچەیەک هەڵبژێرە.';
+        boundaryWeatherSummary.textContent = 'زانیاری کەش و هەوا بەردەست نییە.';
+        boundaryWeatherIcon.textContent = '🌍';
+        clearBoundaryWeatherReadings();
+        boundaryWeatherUpdated.textContent = '—';
+        refreshBoundaryWeatherButton.disabled = true;
+        return;
+    }
+
+    var features = layers.map(function (layer) { return layer.toGeoJSON(); });
+    clearBoundaryWeatherReadings();
+    var center;
+    try {
+        center = turf.center(turf.featureCollection(features)).geometry.coordinates;
+    } catch (error) {
+        console.error('نەتوانرا ناوەندی سنووری کەش و هەوا دیاری بکرێت:', error);
+        boundaryWeatherIcon.textContent = '⚠️';
+        boundaryWeatherSummary.textContent = 'نەتوانرا ناوەندی سنوور دیاری بکرێت.';
+        boundaryWeatherUpdated.textContent = 'تکایە سنوورەکە بپشکنە.';
+        refreshBoundaryWeatherButton.disabled = false;
+        return;
+    }
+    var selectedName = selectedRegionLayer && selectedRegionLayer.kind !== 'named-point' ?
+        selectedRegionLayer.regionName : '';
+    var branch = availableBranches.find(function (item) {
+        return item.id === selectedBranchId;
+    });
+    boundaryWeatherScope.textContent = selectedName || (branch ?
+        'سنوری لق: ' + branch.name : 'کەش و هەوای سنووری هەڵبژێردراو');
+    boundaryWeatherSummary.textContent = 'خەریکی بارکردنی کەش و هەوا...';
+    boundaryWeatherIcon.textContent = '🌍';
+    boundaryWeatherUpdated.textContent = 'خەریکی نوێکردنەوە...';
+    refreshBoundaryWeatherButton.disabled = true;
+
+    var controller = new AbortController();
+    weatherAbortController = controller;
+    var timedOut = false;
+    var timeout = window.setTimeout(function () {
+        timedOut = true;
+        controller.abort();
+    }, 15000);
+    var params = new URLSearchParams({
+        latitude: String(center[1]),
+        longitude: String(center[0]),
+        current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m',
+        timezone: 'auto'
+    });
+    try {
+        var response = await fetch('https://api.open-meteo.com/v1/forecast?' + params, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) {
+            throw new Error('سێرڤەری کەش و هەوا وەڵامی ' + response.status + 'ی دایە.');
+        }
+        var data = await response.json();
+        if (requestToken !== weatherRequestToken) return;
+        if (!data.current || !Number.isFinite(data.current.temperature_2m)) {
+            throw new Error('وەڵامی کەش و هەوا زانیاریی پێویستی تێدا نییە.');
+        }
+
+        var current = data.current;
+        var presentation = getWeatherPresentation(current.weather_code);
+        var number = function (value, fractionDigits) {
+            return Number.isFinite(value) ?
+                new Intl.NumberFormat('en-US', { maximumFractionDigits: fractionDigits }).format(value) :
+                '—';
+        };
+        boundaryWeatherIcon.textContent = presentation.icon;
+        boundaryWeatherSummary.textContent = presentation.text;
+        weatherTemperatureValue.textContent = number(current.temperature_2m, 1) + ' °C';
+        weatherFeelsLikeValue.textContent = number(current.apparent_temperature, 1) + ' °C';
+        weatherCloudValue.textContent = number(current.cloud_cover, 0) + ' %';
+        weatherHumidityValue.textContent = number(current.relative_humidity_2m, 0) + ' %';
+        weatherPrecipitationValue.textContent = current.snowfall > 0 ?
+            number(current.snowfall, 1) + ' cm' :
+            number(current.precipitation, 1) + ' mm';
+        weatherWindValue.textContent = number(current.wind_speed_10m, 1) + ' km/h';
+        boundaryWeatherUpdated.textContent = current.time && current.time.indexOf('T') !== -1 ?
+            current.time.split('T')[1].slice(0, 5) : 'نوێکراوەتەوە';
+
+        isDaytime = current.is_day === 1;
+        boundaryWeatherSummary.textContent = presentation.text +
+            (isDaytime ? ' · ڕۆژ' : ' · شەو');
+        applyDayNightMode();
+        weatherEffectType = presentation.effect;
+        weatherEffectFeatures = features;
+        weatherParticles.forEach(function (particle, index) {
+            particle.x = ((index * 0.61803398875) % 1);
+            particle.y = ((index * 0.75487766625) % 1);
+        });
+        syncWeatherEffects();
+    } catch (error) {
+        if (requestToken !== weatherRequestToken ||
+            (error.name === 'AbortError' && !timedOut)) return;
+        console.error('نەتوانرا کەش و هەوای سنوور باربکرێت:', error);
+        boundaryWeatherSummary.textContent = timedOut ?
+            'وەڵامی کەش و هەوا دوا کەوت؛ دووبارە هەوڵ بدە.' :
+            'بارکردنی کەش و هەوا سەرکەوتوو نەبوو.';
+        boundaryWeatherUpdated.textContent = 'تکایە دووبارە هەوڵ بدە.';
+    } finally {
+        window.clearTimeout(timeout);
+        if (requestToken === weatherRequestToken) {
+            weatherAbortController = null;
+            refreshBoundaryWeatherButton.disabled = false;
+        }
+    }
 }
 
 function setBoundaryStatsMode(mode) {
@@ -1929,6 +2287,7 @@ function selectRegion(layer) {
         regionInfoResults.textContent = 'ناوچەیەک هەڵبژێرە بۆ گەڕانی زانیاری.';
         update3DRegionFilter();
         updateBoundaryStats();
+        updateBoundaryWeather();
         return;
     }
 
@@ -1940,6 +2299,7 @@ function selectRegion(layer) {
     refreshDrawStyle();
     update3DRegionFilter();
     updateBoundaryStats();
+    updateBoundaryWeather();
     loadRegionInfo(layer, false);
 }
 
@@ -2039,6 +2399,7 @@ function loadFeatureCollection(savedRegions) {
     sync3DRegions();
     buildingCountCache.clear();
     updateBoundaryStats();
+    updateBoundaryWeather();
     return regionNameChanged;
 }
 
@@ -3060,6 +3421,15 @@ refreshBuildingStatsButton.addEventListener('click', function () {
     updateBoundaryStats();
 });
 
+refreshBoundaryWeatherButton.addEventListener('click', updateBoundaryWeather);
+window.setInterval(updateBoundaryWeather, 15 * 60 * 1000);
+document.addEventListener('visibilitychange', function () {
+    syncWeatherEffects();
+});
+window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', function () {
+    syncWeatherEffects();
+});
+
 createSubRegionButton.addEventListener('click', beginSubRegionDrawing);
 
 function setNamedPointPlacement(active) {
@@ -3379,5 +3749,6 @@ map.on('click', function (event) {
         .openOn(map);
 });
 
+applyDayNightMode();
 setMapMode('3d');
 initializeOnlineAccess();
