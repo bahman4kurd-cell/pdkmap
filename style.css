@@ -1634,17 +1634,19 @@ body, html {
 }
 
 .panel-branch-section {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .panel-branch-section h4,
-.panel-branch-section .branch-view-notice {
+.panel-branch-section .branch-view-notice,
+.panel-branch-field,
+.panel-branch-section .access-panel {
     grid-column: 1 / -1;
 }
 
 .panel-branch-field {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
     align-items: center;
     gap: 7px;
     min-width: 0;
@@ -1668,26 +1670,37 @@ body, html {
 }
 
 .digital-map-theme .access-panel {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 6px;
     min-width: 0;
     padding: 0;
     border: 0;
 }
 
 .digital-map-theme #accessStatus {
-    flex: 1 1 auto;
+    grid-column: 1 / -1;
     min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 11px;
-    line-height: 1.35;
+    line-height: 1.5;
+    text-align: center;
 }
 
 .digital-map-theme .access-panel button {
-    flex: 0 1 auto;
-    min-height: 29px;
-    padding: 4px 6px;
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding: 5px 8px;
     font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.digital-map-theme .access-panel > [hidden] {
+    display: none !important;
 }
 
 .panel-actions-section {
