@@ -573,7 +573,8 @@ function sync3DRegionLabels() {
         var regionLayer = findRegionLayerById(properties.regionId);
         var isSelectedLabel = Boolean(selectedLabelLayer &&
             String(selectedLabelLayer._leaflet_id) === labelId);
-        label.getElement().hidden = !isNamedPoint && !isSelectedLabel;
+        label.getElement().hidden = !isNamedPoint &&
+            (isGlobeOverview || !isSelectedLabel);
         label.getElement().classList.toggle('is-label-selected',
             isNamedPoint && isSelectedLabel);
         var isForeground = Boolean(!isNamedPoint && selectedRegion &&
@@ -993,8 +994,19 @@ function initialize3DMap() {
             map3D.getCanvas().style.cursor = '';
         });
         map3D.on('click', function (event) {
-            if (!isPlacingNamedPoint) return;
-            beginNamedPointPlacement(L.latLng(event.lngLat.lat, event.lngLat.lng));
+            if (isPlacingNamedPoint) {
+                beginNamedPointPlacement(L.latLng(event.lngLat.lat, event.lngLat.lng));
+                return;
+            }
+            if (!selectedRegionLayer || !map3D.getLayer('committee-fill')) return;
+            var clickedRegions = map3D.queryRenderedFeatures(event.point, {
+                layers: ['committee-fill']
+            });
+            if (clickedRegions.length) return;
+            regionFilter.value = '';
+            selectRegion(null);
+            showSelectedRegion('');
+            map3D.getCanvas().style.cursor = '';
         });
 
         update3DRegionFilter();
@@ -1126,6 +1138,7 @@ function animateGlobeReturn(duration) {
             Math.abs(map3D.getPitch()) < 0.01 &&
             Math.abs(map3D.getBearing()) < 0.01;
         if (!reachedGlobe) map3D.jumpTo(target);
+        update3DRegionFilter();
         startGlobeRotation();
     };
     map3D.on('moveend', globeReturnMoveListener);
