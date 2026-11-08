@@ -625,7 +625,7 @@ function update3DRegionFilter() {
 }
 
 function sync3DSelectionOutline() {
-    if (!map3D || !map3DContainer || !map3D.isStyleLoaded()) return;
+    if (!map3D || !map3DContainer) return;
 
     if (!map3DSelectionOutline) {
         map3DSelectionOutline = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -642,6 +642,12 @@ function sync3DSelectionOutline() {
 
     var selectedRegion = getSelectedRegionLayer(regionFilter.value);
     if (!selectedRegion || currentMapMode !== '3d') {
+        map3DSelectionOutline.hidden = true;
+        map3DSelectionFillPath.setAttribute('d', '');
+        map3DSelectionOutlinePath.setAttribute('d', '');
+        return;
+    }
+    if (!map3D.isStyleLoaded()) {
         map3DSelectionOutline.hidden = true;
         return;
     }
