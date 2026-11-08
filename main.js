@@ -272,6 +272,11 @@ var branchRegionNames = [];
 var legacyLocalFeatureCollection = null;
 var cloudSaveQueue = Promise.resolve();
 var cloudRealtimeChannel = null;
+var cloudRealtimeRetryTimer = null;
+var cloudRealtimeRetryDelay = 1000;
+var cloudRealtimeGeneration = 0;
+var cloudRealtimeBranchId = null;
+var cloudRealtimeLastUpdatedAt = 0;
 var localCloudUpdateTimes = new Set();
 
 maplibregl.setRTLTextPlugin(
@@ -2612,6 +2617,10 @@ async function loadCloudMap(branchId, loadToken) {
         features: []
     };
     var namesChanged = loadFeatureCollection(cloudCollection);
+    if (branchId === selectedBranchId) {
+        cloudRealtimeBranchId = branchId;
+        cloudRealtimeLastUpdatedAt = Date.parse(result.data && result.data.updated_at) || 0;
+    }
     var hasCloudFeatures = cloudCollection.features && cloudCollection.features.length > 0;
     var hasCloudData = hasCloudFeatures ||
         (Array.isArray(cloudCollection.regionNames) && cloudCollection.regionNames.length > 0);
@@ -2753,6 +2762,8 @@ async function switchMapBranch(branchId) {
     selectedBranchId = branchId;
     branchFilter.value = branchId;
     unsubscribeFromCloudMap();
+    cloudRealtimeBranchId = branchId;
+    cloudRealtimeLastUpdatedAt = 0;
     var loadToken = ++branchLoadToken;
     loadFeatureCollection({ type: 'FeatureCollection', features: [] });
     migrateLocalDataButton.hidden = true;
@@ -2764,9 +2775,13 @@ async function switchMapBranch(branchId) {
 }
 
 function subscribeToCloudMap(branchId) {
-    if (!supabaseClient || !currentAuthUser || cloudRealtimeChannel || !branchId) return;
+    if (!supabaseClient || !currentAuthUser || cloudRealtimeChannel ||
+        cloudRealtimeRetryTimer || !branchId) return;
 
-    cloudRealtimeChannel = supabaseClient.channel('map-branch-' + branchId)
+    var generation = ++cloudRealtimeGeneration;
+    var channel = supabaseClient.channel('map-branch-' + branchId);
+    cloudRealtimeChannel = channel;
+    channel
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
@@ -2776,29 +2791,103 @@ function subscribeToCloudMap(branchId) {
             var record = payload.new;
             if (!record || record.branch_id !== selectedBranchId) return;
 
-            var updatedAt = Date.parse(record.updated_at);
-            if (record.updated_by === currentAuthUser.id &&
-                localCloudUpdateTimes.has(updatedAt)) return;
-
-            loadFeatureCollection(record.data || {
-                type: 'FeatureCollection',
-                features: []
-            });
-            setMapEditorPermissions(isGlobalMapAdmin);
-            storageStatus.textContent = 'داتای نوێی cloud لایڤ نوێ کرایەوە';
+            applyCloudMapUpdate(record);
         })
         .subscribe(function (status, error) {
-            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            if (generation !== cloudRealtimeGeneration ||
+                channel !== cloudRealtimeChannel || branchId !== selectedBranchId) return;
+
+            if (status === 'SUBSCRIBED') {
+                cloudRealtimeRetryDelay = 1000;
+                storageStatus.textContent = 'پەیوەندی نوێکردنەوەی ڕاستەوخۆ چالاکە';
+                refreshCloudMapAfterSubscription(branchId, generation).catch(function (refreshError) {
+                    console.error('دوای پەیوەندی ڕاستەوخۆ نەیتوانی داتای نوێ بپشکنێت:', refreshError);
+                    storageStatus.textContent = 'پشکنینی داتای نوێ سەرکەوتوو نەبوو؛ پەیوەندی ئینتەرنێت بپشکنە.';
+                });
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' ||
+                status === 'CLOSED') {
                 console.error('پەیوەندی نوێکردنەوەی لایڤی لق سەرکەوتوو نەبوو:', error);
-                storageStatus.textContent = 'نوێکردنەوەی لایڤ چالاک نییە؛ ڕێکخستنی Realtime بپشکنە.';
+                storageStatus.textContent = 'نوێکردنەوەی لایڤ چالاک نییە؛ خەریکی هەوڵدانەوەیە...';
+                retryCloudMapSubscription(branchId, channel, generation);
             }
         });
 }
 
-function unsubscribeFromCloudMap() {
-    if (!supabaseClient || !cloudRealtimeChannel) return;
-    supabaseClient.removeChannel(cloudRealtimeChannel);
+function applyCloudMapUpdate(record) {
+    if (!record || record.branch_id !== selectedBranchId) return;
+
+    var updatedAt = Date.parse(record.updated_at) || 0;
+    if (record.branch_id === cloudRealtimeBranchId &&
+        updatedAt < cloudRealtimeLastUpdatedAt) return;
+    cloudRealtimeBranchId = record.branch_id;
+    cloudRealtimeLastUpdatedAt = updatedAt;
+
+    if (record.updated_by === currentAuthUser.id &&
+        localCloudUpdateTimes.has(updatedAt)) return;
+
+    loadFeatureCollection(record.data || {
+        type: 'FeatureCollection',
+        features: []
+    });
+    setMapEditorPermissions(isGlobalMapAdmin);
+    storageStatus.textContent = 'داتای نوێی نەخشە لایڤ نوێ کرایەوە';
+}
+
+async function refreshCloudMapAfterSubscription(branchId, generation) {
+    var result = await supabaseClient.from('map_branch_state')
+        .select('branch_id, data, updated_at, updated_by')
+        .eq('branch_id', branchId)
+        .maybeSingle();
+    if (result.error) throw result.error;
+    if (generation !== cloudRealtimeGeneration ||
+        branchId !== selectedBranchId || !result.data) return;
+
+    var updatedAt = Date.parse(result.data.updated_at) || 0;
+    if (result.data.branch_id === cloudRealtimeBranchId &&
+        updatedAt <= cloudRealtimeLastUpdatedAt) return;
+    applyCloudMapUpdate(result.data);
+}
+
+function retryCloudMapSubscription(branchId, channel, generation) {
+    if (generation !== cloudRealtimeGeneration ||
+        channel !== cloudRealtimeChannel || cloudRealtimeRetryTimer) return;
+
     cloudRealtimeChannel = null;
+    supabaseClient.removeChannel(channel).then(function (status) {
+        if (status === 'error') {
+            console.error('نەتوانرا پەیوەندی کۆنی Realtime لاببرێت.');
+        }
+    }).catch(function (error) {
+        console.error('لابردنی پەیوەندی کۆنی Realtime سەرکەوتوو نەبوو:', error);
+    });
+
+    var retryDelay = cloudRealtimeRetryDelay;
+    cloudRealtimeRetryDelay = Math.min(cloudRealtimeRetryDelay * 2, 30000);
+    cloudRealtimeRetryTimer = window.setTimeout(function () {
+        cloudRealtimeRetryTimer = null;
+        if (branchId === selectedBranchId && currentAuthUser) {
+            subscribeToCloudMap(branchId);
+        }
+    }, retryDelay);
+}
+
+function unsubscribeFromCloudMap() {
+    cloudRealtimeGeneration++;
+    if (cloudRealtimeRetryTimer) {
+        window.clearTimeout(cloudRealtimeRetryTimer);
+        cloudRealtimeRetryTimer = null;
+    }
+    cloudRealtimeRetryDelay = 1000;
+    if (!supabaseClient || !cloudRealtimeChannel) return;
+    var channel = cloudRealtimeChannel;
+    cloudRealtimeChannel = null;
+    supabaseClient.removeChannel(channel).then(function (status) {
+        if (status === 'error') {
+            console.error('نەتوانرا پەیوەندی Realtimeی لق لاببرێت.');
+        }
+    }).catch(function (error) {
+        console.error('لابردنی پەیوەندی Realtime سەرکەوتوو نەبوو:', error);
+    });
 }
 
 async function readLegacyLocalFeatureCollection() {
