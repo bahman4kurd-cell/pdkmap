@@ -15,91 +15,130 @@
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=selected-region-label-v2" />
+    <link rel="stylesheet" href="style.css?v=map-panels-glass-compact-v1" />
 </head>
 <body class="digital-map-theme">
 
-    <div class="style-panel">
-        <h3>ڕەنگی ناوچە</h3>
-        <div class="view-mode" role="group" aria-label="شێوازی نەخشە">
-            <button type="button" id="map2DButton" aria-pressed="false">2D</button>
-            <button type="button" id="map3DButton" aria-pressed="true">3D</button>
-            <button type="button" id="globeOverviewButton" aria-label="گەڕانەوە بۆ گۆی زەوی" title="گەڕانەوە بۆ گۆی زەوی">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="M3.5 12h17M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5s-1.1 6.2-3.3 8.5M12 3.5C9.8 5.8 8.7 8.6 8.7 12s1.1 6.2 3.3 8.5M5.2 6.4A9 9 0 0 1 19 5.8M19 3.2v3.4h-3.4" />
-                </svg>
-                <span class="visually-hidden">گەڕانەوە بۆ گۆی زەوی</span>
-            </button>
-            <button type="button" id="satelliteMapButton" aria-label="سەتەلایت" title="سەتەلایت" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="m14.5 9.5 3-3 3 3-3 3zM9.5 14.5l-3 3-3-3 3-3zM8 8l8 8M14 4a6 6 0 0 1 6 6M4 14a6 6 0 0 0 6 6" />
-                </svg>
-                <span class="visually-hidden">سەتەلایت</span>
-            </button>
-        </div>
-        <div class="access-panel">
-            <span id="accessStatus" role="status" aria-live="polite">چوونەژوورەوە پێویستە</span>
-            <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
-            <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
-            <button type="button" id="openBranchManagementButton" hidden>بەڕێوەبردنی لقەکان</button>
-        </div>
-        <label for="branchFilter">لقی ماپ</label>
-        <select id="branchFilter" disabled>
-            <option value="">چاوەڕێی چوونەژوورەوە...</option>
-        </select>
-        <p id="branchViewNotice" class="branch-view-notice" hidden>تەنها لقە دیاریکراوەکانت دەبینیت؛ مۆڵەتی دەستکاریکردنت نییە.</p>
-        <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-                <circle cx="12" cy="10" r="2.5" />
-            </svg>
-            <span>زیادکردنی خاڵ</span>
-        </button>
-        <button type="button" id="editNamedLabelButton" disabled title="ئیدیتی ناوی پۆینت یان سنوور">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
-            </svg>
-            <span>ئیدیتی ناو</span>
-        </button>
-        <label for="namedPointColor">ڕەنگی پۆینتی هەڵبژێردراو</label>
-        <input type="color" id="namedPointColor" value="#e11d48" disabled>
-        <button type="button" id="applyNamedPointColor" disabled>گۆڕینی ڕەنگی پۆینت</button>
-        <button type="button" id="createSubRegionButton" disabled>دروستکردنی sub-polygon</button>
-        <button type="button" id="deleteSelectedRegionButton" class="danger-action" disabled>سڕینەوەی polygon</button>
-        <button type="button" id="deleteSelectedSubRegionButton" class="danger-action" disabled>سڕینەوەی sub-polygon</button>
-        <label class="map-layer-toggle" for="streetMapToggle">
-            <input type="checkbox" id="streetMapToggle" checked>
-            پیشاندانی شەقام و شوێنەکان
-        </label>
-        <label for="newRegionName">ناوی ناوچەی نوێ</label>
-        <input type="text" id="newRegionName" maxlength="80" autocomplete="off" disabled>
-        <button type="button" id="addRegionNameButton" disabled>زیادکردنی ناوچە بۆ کۆمبۆ</button>
-        <label for="regionFilter">پیشاندانی ناوچە</label>
-        <select id="regionFilter">
-            <option value="">هەموو ناوچەکان</option>
-        </select>
-
-        <label for="borderColor">ڕەنگی بۆدەر</label>
-        <input type="color" id="borderColor" value="#0056b3">
-
-        <label for="fillColor">ڕەنگی ناوەوە</label>
-        <input type="color" id="fillColor" value="#3388ff">
-
-        <label for="fillOpacity">ڕوونی ناوەوە</label>
-        <input type="range" id="fillOpacity" min="0.1" max="1" step="0.1" value="0.3">
-        <span id="opacityValue">0.3</span>
-        <button type="button" id="applyRegionStyle" disabled>گۆڕینی ڕەنگی ناوچەی هەڵبژێردراو</button>
-        <h4>زانیاری ناوچە</h4>
-        <button type="button" id="refreshRegionInfo" disabled>نوێکردنەوەی زانیاری</button>
-        <div id="regionInfoResults" role="status" aria-live="polite">ناوچەیەک هەڵبژێرە بۆ گەڕانی زانیاری.</div>
-        <span id="locationResult" role="status" aria-live="polite">لەسەر شوێنێک لە نەخشەکە کلیک بکە</span>
-        <span id="storageStatus" role="status" aria-live="polite">خەریکی پەیوەندی بە داتابەیس...</span>
+    <div class="style-panel" aria-label="کۆنترۆڵی نەخشە">
+        <header class="panel-header">
+            <div class="panel-title">
+                <span>کۆنترۆڵی سیستەم</span>
+                <h3>ڕێکخستنی نەخشە</h3>
+            </div>
+            <div class="view-mode" role="group" aria-label="شێوازی نەخشە">
+                <button type="button" id="map2DButton" aria-pressed="false">2D</button>
+                <button type="button" id="map3DButton" aria-pressed="true">3D</button>
+                <button type="button" id="globeOverviewButton" aria-label="گەڕانەوە بۆ گۆی زەوی" title="گەڕانەوە بۆ گۆی زەوی">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <circle cx="12" cy="12" r="8.5" />
+                        <path d="M3.5 12h17M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5s-1.1 6.2-3.3 8.5M12 3.5C9.8 5.8 8.7 8.6 8.7 12s1.1 6.2 3.3 8.5M5.2 6.4A9 9 0 0 1 19 5.8M19 3.2v3.4h-3.4" />
+                    </svg>
+                    <span class="visually-hidden">گەڕانەوە بۆ گۆی زەوی</span>
+                </button>
+                <button type="button" id="satelliteMapButton" aria-label="سەتەلایت" title="سەتەلایت" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="m14.5 9.5 3-3 3 3-3 3zM9.5 14.5l-3 3-3-3 3-3zM8 8l8 8M14 4a6 6 0 0 1 6 6M4 14a6 6 0 0 0 6 6" />
+                    </svg>
+                    <span class="visually-hidden">سەتەلایت</span>
+                </button>
+            </div>
+        </header>
+        <section class="panel-section panel-branch-section" aria-labelledby="branchPanelTitle">
+            <h4 id="branchPanelTitle">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v11a4 4 0 0 0 4 4h8M6 8h7a4 4 0 0 1 4 4v7M4 4h4v4H4zM16 17h4v4h-4z"/></svg>
+                لق و دەسەڵات
+            </h4>
+            <div class="panel-branch-field">
+                <label for="branchFilter">لقی نەخشە</label>
+                <select id="branchFilter" disabled>
+                    <option value="">چاوەڕێی چوونەژوورەوە...</option>
+                </select>
+            </div>
+            <p id="branchViewNotice" class="branch-view-notice" hidden>تەنها لقە دیاریکراوەکانت دەبینیت؛ مۆڵەتی دەستکاریکردنت نییە.</p>
+            <div class="access-panel">
+                <span id="accessStatus" role="status" aria-live="polite">چوونەژوورەوە پێویستە</span>
+                <button type="button" id="adminLogoutButton" hidden>چوونەدەرەوە</button>
+                <button type="button" id="migrateLocalDataButton" hidden>گواستنەوەی داتای ناوخۆ بۆ cloud</button>
+                <button type="button" id="openBranchManagementButton" hidden>بەڕێوەبردنی لقەکان</button>
+            </div>
+        </section>
+        <section class="panel-section panel-actions-section" aria-labelledby="mapActionsTitle">
+            <h4 id="mapActionsTitle">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8.5"/></svg>
+                ئامرازەکانی نەخشە
+            </h4>
+            <div class="panel-action-grid">
+                <button type="button" id="addNamedPointButton" aria-pressed="false" title="خاڵێکی ناودار زیاد بکە">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+                        <circle cx="12" cy="10" r="2.5" />
+                    </svg>
+                    <span>زیادکردنی خاڵ</span>
+                </button>
+                <button type="button" id="editNamedLabelButton" disabled title="ئیدیتی ناوی پۆینت یان سنوور">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+                    </svg>
+                    <span>ئیدیتی ناو</span>
+                </button>
+                <button type="button" id="createSubRegionButton" disabled>دروستکردنی ناوچەی بچووک</button>
+                <button type="button" id="deleteSelectedRegionButton" class="danger-action" disabled>سڕینەوەی polygon</button>
+                <button type="button" id="deleteSelectedSubRegionButton" class="danger-action" disabled>سڕینەوەی ناوچەی بچووک</button>
+                <label class="map-layer-toggle" for="streetMapToggle">
+                    <input type="checkbox" id="streetMapToggle" checked>
+                    پیشاندانی شەقام و شوێنەکان
+                </label>
+            </div>
+            <div class="panel-point-color">
+                <label for="namedPointColor">ڕەنگی خاڵی هەڵبژێردراو</label>
+                <input type="color" id="namedPointColor" value="#e11d48" disabled>
+                <button type="button" id="applyNamedPointColor" disabled>گۆڕینی ڕەنگ</button>
+            </div>
+        </section>
+        <section class="panel-section panel-regions-section" aria-labelledby="regionsPanelTitle">
+            <h4 id="regionsPanelTitle">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/></svg>
+                ناوچەکان
+            </h4>
+            <label for="newRegionName">ناوی ناوچەی نوێ</label>
+            <input type="text" id="newRegionName" maxlength="80" autocomplete="off" disabled>
+            <button type="button" id="addRegionNameButton" disabled>زیادکردنی ناوچە</button>
+            <label for="regionFilter">فلتەری ناوچە</label>
+            <select id="regionFilter">
+                <option value="">هەموو ناوچەکان</option>
+            </select>
+        </section>
+        <section class="panel-section panel-style-section" aria-labelledby="stylePanelTitle">
+            <h4 id="stylePanelTitle">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.2a2 2 0 0 0 1.4-3.4 1.8 1.8 0 0 1 1.3-3.1H18a3 3 0 0 0 3-3c0-4.7-4-8.5-9-8.5Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="8" r="1"/></svg>
+                شێوازی سنوور
+            </h4>
+            <label for="borderColor">ڕەنگی بۆدەر</label>
+            <input type="color" id="borderColor" value="#0056b3">
+            <label for="fillColor">ڕەنگی ناوەوە</label>
+            <input type="color" id="fillColor" value="#3388ff">
+            <label for="fillOpacity">ڕوونی ناوەوە</label>
+            <input type="range" id="fillOpacity" min="0.1" max="1" step="0.1" value="0.3">
+            <span id="opacityValue">0.3</span>
+            <button type="button" id="applyRegionStyle" disabled>جێبەجێکردنی ڕەنگ</button>
+        </section>
+        <section class="panel-section panel-info-section" aria-labelledby="regionInfoTitle">
+            <div class="panel-info-heading">
+                <h4 id="regionInfoTitle">زانیاری ناوچە</h4>
+                <button type="button" id="refreshRegionInfo" disabled>نوێکردنەوە</button>
+            </div>
+            <div id="regionInfoResults" role="status" aria-live="polite">ناوچەیەک هەڵبژێرە بۆ گەڕانی زانیاری.</div>
+            <span id="locationResult" role="status" aria-live="polite">لەسەر شوێنێک لە نەخشەکە کلیک بکە</span>
+            <span id="storageStatus" role="status" aria-live="polite">خەریکی پەیوەندی بە داتابەیس...</span>
+        </section>
         <p class="creator-credit creator-credit-panel">دروستکردنی: بەهمەن دەروێش علی / یەکەی ئایتی</p>
     </div>
 
     <aside id="boundaryStatsPanel" class="boundary-stats-panel" aria-labelledby="boundaryStatsTitle">
-        <h2 id="boundaryStatsTitle">ئاماری سنوور</h2>
+        <h2 id="boundaryStatsTitle">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6m4 6V4"/></svg>
+            ئاماری سنوور
+        </h2>
         <div class="boundary-stats-mode" role="group" aria-label="شێوازی ئاماری سنوور">
             <button type="button" id="regionStatsModeButton" aria-pressed="true">ناوچەی هەڵبژێردراو</button>
             <button type="button" id="branchStatsModeButton" aria-pressed="false">کۆی لق</button>
@@ -134,7 +173,10 @@
         <button type="button" id="refreshBuildingStatsButton">نوێکردنەوەی ژمارەی بینا</button>
         <section id="boundaryWeatherPanel" class="boundary-weather-panel" aria-labelledby="boundaryWeatherTitle">
             <div class="boundary-weather-heading">
-                <h3 id="boundaryWeatherTitle">کەش و هەوای سنوور</h3>
+                <h3 id="boundaryWeatherTitle">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .4-8A6 6 0 0 0 6 8a5 5 0 0 0 1 10Z"/><path d="m9 20-1 2m6-2-1 2m6-2-1 2"/></svg>
+                    کەش و هەوای سنوور
+                </h3>
                 <span id="boundaryWeatherIcon" class="boundary-weather-icon" aria-hidden="true">⛅</span>
             </div>
             <p id="boundaryWeatherScope" class="boundary-weather-scope">ناوچەیەک یان لقێک هەڵبژێرە.</p>

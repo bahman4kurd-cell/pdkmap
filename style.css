@@ -1523,3 +1523,479 @@ body, html {
 .leaflet-draw {
     direction: ltr;
 }
+
+.digital-map-theme .style-panel {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 5px;
+    width: min(348px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 11px;
+    border-color: rgba(94, 224, 245, 0.42);
+    border-radius: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 202, 230, 0.45) transparent;
+}
+
+.panel-header,
+.panel-section,
+.creator-credit-panel {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 2px 8px;
+    border-bottom: 1px solid rgba(75, 190, 218, 0.25);
+}
+
+.panel-title {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.panel-title > span {
+    color: #74d5e8;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+}
+
+.digital-map-theme .panel-title h3 {
+    color: #effbff;
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+.digital-map-theme .style-panel .view-mode {
+    flex: 0 0 164px;
+    gap: 4px;
+}
+
+.digital-map-theme .style-panel .view-mode button {
+    min-width: 0;
+    min-height: 34px;
+    padding: 4px;
+    border-radius: 9px;
+    font-size: 12px;
+}
+
+.digital-map-theme .style-panel .view-mode button#globeOverviewButton,
+.digital-map-theme .style-panel .view-mode button#satelliteMapButton {
+    min-width: 0;
+}
+
+.digital-map-theme .style-panel .view-mode button svg {
+    width: 17px;
+    height: 17px;
+}
+
+.panel-section {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    min-width: 0;
+    padding: 6px;
+    border: 1px solid rgba(63, 165, 194, 0.2);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(10, 35, 57, 0.7), rgba(5, 20, 38, 0.72));
+}
+
+.digital-map-theme .panel-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 1px;
+    color: #d7f6ff;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.panel-section h4 svg,
+.boundary-stats-panel h2 svg,
+.boundary-weather-heading h3 svg {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: #63d9ef;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+}
+
+.panel-branch-section {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
+.panel-branch-section h4,
+.panel-branch-section .branch-view-notice {
+    grid-column: 1 / -1;
+}
+
+.panel-branch-field {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.panel-branch-field label,
+.panel-section > label {
+    color: #b7d8e6;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.digital-map-theme .style-panel .panel-branch-field select,
+.digital-map-theme .style-panel .panel-regions-section select,
+.digital-map-theme .style-panel .panel-regions-section input[type="text"] {
+    min-width: 0;
+    min-height: 31px;
+    padding: 4px 7px;
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+.digital-map-theme .access-panel {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+}
+
+.digital-map-theme #accessStatus {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.digital-map-theme .access-panel button {
+    flex: 0 1 auto;
+    min-height: 29px;
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+.panel-actions-section {
+    grid-column: 1 / -1;
+}
+
+.panel-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.digital-map-theme .panel-action-grid > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+    min-height: 30px;
+    padding: 5px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.panel-action-grid > button svg {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.panel-action-grid .map-layer-toggle {
+    grid-column: 1 / -1;
+    min-height: 27px;
+    padding: 3px 4px;
+    border-radius: 7px;
+    background: rgba(30, 78, 101, 0.25);
+    color: #c9e6ef;
+    font-size: 11px;
+}
+
+.panel-point-color {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: 5px 7px;
+    margin-top: 1px;
+}
+
+.panel-point-color label {
+    grid-column: 1 / -1;
+    color: #b7d8e6;
+    font-size: 11px;
+}
+
+.digital-map-theme .style-panel .panel-point-color input[type="color"],
+.digital-map-theme .style-panel .panel-style-section input[type="color"] {
+    width: 100%;
+    height: 29px;
+    padding: 2px;
+    border: 1px solid rgba(69, 184, 218, 0.4);
+    border-radius: 7px;
+    background: rgba(2, 10, 23, 0.9);
+}
+
+.digital-map-theme .style-panel .panel-point-color button,
+.digital-map-theme .style-panel .panel-regions-section button,
+.digital-map-theme .style-panel .panel-style-section button,
+.digital-map-theme .style-panel .panel-info-heading button {
+    min-width: 0;
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.panel-regions-section {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
+}
+
+.panel-regions-section h4,
+.panel-regions-section button {
+    grid-column: 1 / -1;
+}
+
+.panel-style-section {
+    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+}
+
+.panel-style-section h4,
+.panel-style-section #applyRegionStyle {
+    grid-column: 1 / -1;
+}
+
+.panel-style-section input[type="range"] {
+    min-width: 0;
+    accent-color: #3bd7ee;
+}
+
+.digital-map-theme .style-panel #opacityValue {
+    color: #a7e8f4;
+    font-size: 11px;
+    text-align: center;
+}
+
+.panel-info-section {
+    gap: 5px;
+}
+
+.panel-info-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.digital-map-theme .panel-info-heading h4 {
+    margin: 0;
+}
+
+.digital-map-theme #regionInfoResults {
+    max-height: 78px;
+    overflow-y: auto;
+    padding: 4px 6px;
+    border-radius: 7px;
+    background: rgba(3, 14, 28, 0.52);
+    color: #b8d5e3;
+    font-size: 11px;
+    line-height: 1.45;
+    scrollbar-width: thin;
+}
+
+.digital-map-theme #regionInfoResults .region-info-category {
+    margin-bottom: 4px;
+}
+
+.digital-map-theme #regionInfoResults .region-info-category ul {
+    padding-right: 14px;
+}
+
+.digital-map-theme #locationResult {
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.digital-map-theme #storageStatus {
+    padding-top: 4px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.digital-map-theme .creator-credit-panel {
+    margin-top: 0;
+    padding-top: 5px;
+    border-top-color: rgba(75, 157, 188, 0.25);
+    font-size: 9px;
+}
+
+.digital-map-theme .boundary-stats-panel {
+    top: 76px;
+    right: 12px;
+    display: grid;
+    gap: 8px;
+    width: min(318px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    padding: 12px;
+    border-radius: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 202, 230, 0.45) transparent;
+}
+
+.digital-map-theme .boundary-stats-panel h2 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #effbff;
+    font-size: 15px;
+}
+
+.digital-map-theme .boundary-stats-panel h2 svg {
+    width: 18px;
+    height: 18px;
+}
+
+.digital-map-theme .boundary-stats-mode {
+    gap: 5px;
+}
+
+.digital-map-theme .boundary-stats-mode button,
+.digital-map-theme .boundary-stats-panel > button {
+    min-height: 31px;
+    padding: 5px 7px;
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+.digital-map-theme .boundary-stats-scope {
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.digital-map-theme .boundary-stats-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.digital-map-theme .boundary-stats-list > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 6px 7px;
+    border: 1px solid rgba(54, 144, 178, 0.18);
+    border-radius: 8px;
+    background: rgba(9, 29, 49, 0.65);
+}
+
+.digital-map-theme .boundary-stats-list dt {
+    font-size: 10px;
+}
+
+.digital-map-theme .boundary-stats-list dd {
+    font-size: 12px;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.digital-map-theme .boundary-stats-note {
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.digital-map-theme .boundary-weather-panel {
+    gap: 5px;
+    padding: 8px;
+    border-radius: 11px;
+}
+
+.digital-map-theme .boundary-weather-heading h3 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+}
+
+.digital-map-theme .boundary-weather-heading h3 svg {
+    width: 15px;
+    height: 15px;
+}
+
+.digital-map-theme .boundary-weather-icon {
+    font-size: 20px;
+}
+
+.digital-map-theme .boundary-weather-scope,
+.digital-map-theme .boundary-weather-summary {
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.digital-map-theme .boundary-weather-details {
+    gap: 4px;
+}
+
+.digital-map-theme .boundary-weather-details > div {
+    gap: 2px;
+    padding: 4px 5px;
+    border-radius: 7px;
+}
+
+.digital-map-theme .boundary-weather-details dt,
+.digital-map-theme .boundary-weather-details dd,
+.digital-map-theme .boundary-weather-footer > span,
+.digital-map-theme .boundary-weather-source {
+    font-size: 10px;
+}
+
+.digital-map-theme .boundary-weather-footer button {
+    min-height: 27px;
+    padding: 3px 7px;
+    border-radius: 7px;
+    font-size: 9px;
+}
+
+@media (max-width: 760px) {
+    .digital-map-theme .style-panel {
+        top: 8px;
+        left: 8px;
+        width: min(340px, calc(100vw - 16px));
+        max-height: 48vh;
+        padding: 9px;
+    }
+
+    .digital-map-theme .boundary-stats-panel {
+        top: auto;
+        right: 8px;
+        bottom: 8px;
+        width: min(318px, calc(100vw - 16px));
+        max-height: 46vh;
+        padding: 9px;
+    }
+}
